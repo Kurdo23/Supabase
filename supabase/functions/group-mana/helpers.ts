@@ -1,0 +1,410 @@
+import { SupabaseClient } from '@supabase/supabase-js';
+
+
+// ============================================
+// FONCTION PRINCIPALE
+// ============================================
+
+/**
+ * Récupère TOUT en une seule fois pour les groupes :
+ * - Les statistiques (total groupes, actifs, inactifs, membres totaux, points totaux)
+ * - La liste paginée des groupes avec leurs infos complètes
+ * - Les métadonnées de pagination
+ *
+ * @param supabase - Client Supabase initialisé
+ * @param page - Numéro de page (par défaut 1)
+ * @param pageSize - Nombre de groupes par page (par défaut 20)
+ * @param statusFilter - Filtrer par statut : 'all' | 'active' | 'inactive' (par défaut 'all')
+ * @param typeFilter - Filtrer par type : 'all' | 'family' | 'enterprise' | 'association' | 'other' (par défaut 'all')
+ * @param searchQuery - Recherche par nom, description ou admin (optionnel)
+ * @returns Promise avec statistiques + groupes paginés
+ */
+export async function getCompleteGroupSummary(
+    supabase: SupabaseClient,
+    page: number = 1,
+    pageSize: number = 20,
+    statusFilter: 'all' | 'active' | 'inactive' = 'all',
+    typeFilter: 'all' | 'family' | 'enterprise' | 'association' | 'other' = 'all',
+    searchQuery?: string
+): Promise<CompleteGroupResponse> {
+    try {
+        // Validation des paramètres
+        if (page < 1) {
+            throw new Error('Le numéro de page doit être supérieur ou égal à 1');
+        }
+        if (pageSize < 1 || pageSize > 100) {
+            throw new Error('La taille de page doit être entre 1 et 100');
+        }
+
+        // ========================================
+        // ÉTAPE 1: RÉCUPÉRER LES STATISTIQUES
+        // ========================================
+
+        // Total groupes
+        const { count: totalCount, error: totalError } = await supabase
+            .from('groups')
+            .select('*', { count: 'exact', head: true })
+            .is('deleted_at', null);
+
+        if (totalError) throw new Error(`Erreur total: ${totalError.message}`);
+
+        // Groupes actifs
+        const { count: activeCount, error: activeError } = await supabase
+            .from('groups')
+            .select('*', { count: 'exact', head: true })
+            .is('deleted_at', null)
+            .eq('status', 'active');
+
+        if (activeError) throw new Error(`Erreur actifs: ${activeError.message}`);
+
+        // Groupes inactifs
+        const inactiveCount = (totalCount || 0) - (activeCount || 0);
+
+        // Total membres (somme de tous les member_count)
+        const { data: memberData, error: memberError } = await supabase
+            .from('groups')
+            .select('member_count')
+            .is('deleted_at', null);
+
+        if (memberError) throw new Error(`Erreur membres: ${memberError.message}`);
+
+        const totalMembers = memberData?.reduce((sum, group) => sum + (group.member_count || 0), 0) || 0;
+
+        // Total points (somme de tous les total_points)
+        const { data: pointsData, error: pointsError } = await supabase
+            .from('groups')
+            .select('total_points')
+            .is('deleted_at', null);
+
+        if (pointsError) throw new Error(`Erreur points: ${pointsError.message}`);
+
+        const totalPoints = pointsData?.reduce((sum, group) => sum + (group.total_points || 0), 0) || 0;
+
+        const stats: GroupStats = {
+            totalGroups: totalCount || 0,
+            activeGroups: activeCount || 0,
+            inactiveGroups: inactiveCount,
+            totalMembers,
+            totalPoints,
+            lastUpdated: new Date().toISOString(),
+        };
+
+        // ========================================
+        // ÉTAPE 2: RÉCUPÉRER LA LISTE PAGINÉE
+        // ========================================
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+
+        // Construction de la requête avec jointure sur les admins
+        let query = supabase
+            .from('groups')
+            .select(`
+        uuid,
+        name,
+        description,
+        avatar,
+        status,
+        type,
+        member_count,
+        total_points,
+        created_at,
+        admin_uuid,
+        profiles!groups_admin_uuid_fkey (
+          name
+        )
+      `, { count: 'exact' })
+            .is('deleted_at', null)
+            .range(from, to)
+            .order('name', { ascending: true });
+
+        // Appliquer le filtre de statut
+        if (statusFilter !== 'all') {
+            query = query.eq('status', statusFilter);
+        }
+
+        // Appliquer le filtre de type
+        if (typeFilter !== 'all') {
+            query = query.eq('type', typeFilter);
+        }
+
+        // Appliquer la recherche
+        if (searchQuery && searchQuery.trim()) {
+            query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+        }
+
+        const { data, error: groupsError, count: groupsCount } = await query;
+
+        if (groupsError) {
+            throw new Error(`Erreur groupes: ${groupsError.message}`);
+        }
+
+        // Transformer les données pour le format attendu
+        const groups: GroupProfile[] = (data || []).map((group: any) => ({
+            uuid: group.uuid,
+            name: group.name,
+            description: group.description,
+            avatar: group.avatar,
+            status: group.status,
+            type: group.type,
+            member_count: group.member_count || 0,
+            total_points: group.total_points || 0,
+            admin_name: group.profiles?.name || 'Admin inconnu',
+            admin_uuid: group.admin_uuid,
+            created_at: group.created_at,
+        }));
+
+        // ========================================
+        // ÉTAPE 3: CALCULER LES MÉTADONNÉES
+        // ========================================
+
+        const relevantCount = groupsCount || 0;
+        const totalPages = relevantCount > 0
+            ? Math.ceil(relevantCount / pageSize)
+            : 1;
+        const hasMore = page < totalPages;
+
+        const summary: CompleteGroupSummary = {
+            stats,
+            groups,
+            pagination: {
+                currentPage: page,
+                pageSize,
+                totalCount: relevantCount,
+                totalPages,
+                hasMore,
+            },
+        };
+
+        return {
+            summary,
+            error: null,
+            success: true,
+        };
+
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.error('Erreur lors de la récupération complète des groupes:', errorMessage);
+
+        return {
+            summary: null,
+            error: errorMessage,
+            success: false,
+        };
+    }
+}
+
+/**
+ * Récupère TOUS les groupes (toutes les pages) avec les statistiques
+ * ⚠️ À utiliser avec précaution si vous avez beaucoup de groupes
+ *
+ * @param supabase - Client Supabase
+ * @param statusFilter - Filtrer par statut
+ * @param typeFilter - Filtrer par type
+ * @param maxPages - Limite de sécurité (par défaut 100)
+ * @returns Promise avec stats + tous les groupes
+ */
+export async function getAllGroupsWithStats(
+    supabase: SupabaseClient,
+    statusFilter: 'all' | 'active' | 'inactive' = 'all',
+    typeFilter: 'all' | 'family' | 'enterprise' | 'association' | 'other' = 'all',
+    maxPages: number = 100
+): Promise<CompleteGroupResponse> {
+    try {
+        const allGroups: GroupProfile[] = [];
+        let currentPage = 1;
+        let stats: GroupStats | null = null;
+        let pagination: CompleteGroupSummary['pagination'] | null = null;
+
+        while (currentPage <= maxPages) {
+            const response = await getCompleteGroupSummary(
+                supabase,
+                currentPage,
+                20,
+                statusFilter,
+                typeFilter
+            );
+
+            if (!response.success || !response.summary) {
+                throw new Error(response.error || 'Erreur de récupération');
+            }
+
+            // Sauvegarder les stats (identiques à chaque page)
+            if (currentPage === 1) {
+                stats = response.summary.stats;
+            }
+
+            // Ajouter les groupes
+            allGroups.push(...response.summary.groups);
+
+            // Sauvegarder les infos de pagination
+            pagination = response.summary.pagination;
+
+            // Arrêter s'il n'y a plus de pages
+            if (!response.summary.pagination.hasMore) {
+                break;
+            }
+
+            currentPage++;
+        }
+
+        if (!stats || !pagination) {
+            throw new Error('Impossible de récupérer les données');
+        }
+
+        return {
+            summary: {
+                stats,
+                groups: allGroups,
+                pagination: {
+                    ...pagination,
+                    currentPage: 1,
+                    pageSize: allGroups.length,
+                    hasMore: false,
+                },
+            },
+            error: null,
+            success: true,
+        };
+
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.error('Erreur getAllGroupsWithStats:', errorMessage);
+
+        return {
+            summary: null,
+            error: errorMessage,
+            success: false,
+        };
+    }
+}
+
+// ============================================
+// FONCTIONS UTILITAIRES
+// ============================================
+
+/**
+ * Formatte les points en format lisible (ex: 141000 → "141k")
+ */
+export function formatPoints(points: number): string {
+    if (points >= 1000000) {
+        return `${Math.floor(points / 1000000)}M`;
+    }
+    if (points >= 1000) {
+        return `${Math.floor(points / 1000)}k`;
+    }
+    return points.toString();
+}
+
+/**
+ * Retourne le label français du type de groupe
+ */
+export function getGroupTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+        family: 'Famille',
+        enterprise: 'Entreprise',
+        association: 'Association',
+        other: 'Autre',
+    };
+    return labels[type] || type;
+}
+
+/**
+ * Retourne l'icône/emoji correspondant au type de groupe
+ */
+export function getGroupTypeIcon(type: string): string {
+    const icons: Record<string, string> = {
+        family: '👨‍👩‍👧‍👦',
+        enterprise: '🏢',
+        association: '🤝',
+        other: '👥',
+    };
+    return icons[type] || '📁';
+}
+
+// ============================================
+// EXEMPLES D'UTILISATION
+// ============================================
+
+/**
+ * Exemple 1: Récupération simple avec stats
+ */
+async function exemple1() {
+    const supabase = createClient('YOUR_URL', 'YOUR_KEY');
+
+    const result = await getCompleteGroupSummary(supabase, 1, 20);
+
+    if (result.success && result.summary) {
+        console.log('📊 STATISTIQUES:');
+        console.log(`Total groupes: ${result.summary.stats.totalGroups}`);
+        console.log(`Groupes actifs: ${result.summary.stats.activeGroups}`);
+        console.log(`Groupes inactifs: ${result.summary.stats.inactiveGroups}`);
+        console.log(`Total membres: ${result.summary.stats.totalMembers}`);
+        console.log(`Points totaux: ${formatPoints(result.summary.stats.totalPoints)}`);
+
+        console.log('\n👥 GROUPES (page 1):');
+        result.summary.groups.forEach(group => {
+            console.log(`- ${group.name} (${group.member_count} membres) - Admin: ${group.admin_name}`);
+        });
+    }
+}
+
+/**
+ * Exemple 2: Recherche et filtrage
+ */
+async function exemple2() {
+    const supabase = createClient('YOUR_URL', 'YOUR_KEY');
+
+    // Rechercher uniquement les groupes actifs de type "famille"
+    const result = await getCompleteGroupSummary(
+        supabase,
+        1,
+        20,
+        'active',
+        'family',
+        'Lyon' // Rechercher "Lyon" dans nom ou description
+    );
+
+    if (result.success && result.summary) {
+        console.log(`Trouvé ${result.summary.groups.length} groupes familiaux actifs avec "Lyon"`);
+    }
+}
+
+
+// ============================================
+// NOTES IMPORTANTES
+// ============================================
+
+/*
+STRUCTURE DE TABLE REQUISE (groups):
+- uuid: identifiant unique du groupe
+- name: nom du groupe
+- description: description (nullable)
+- avatar: URL de l'avatar du groupe (nullable)
+- status: 'active' | 'inactive'
+- type: 'family' | 'enterprise' | 'association' | 'other'
+- member_count: nombre de membres dans le groupe
+- total_points: points totaux accumulés par le groupe
+- admin_uuid: UUID de l'administrateur (FK vers profiles)
+- deleted_at: timestamp soft delete (NULL si actif)
+- created_at: date de création
+
+RELATION AVEC LA TABLE profiles:
+- groups.admin_uuid → profiles.uuid (foreign key)
+
+INDEXES RECOMMANDÉS:
+CREATE INDEX idx_groups_status ON groups(status);
+CREATE INDEX idx_groups_type ON groups(type);
+CREATE INDEX idx_groups_admin_uuid ON groups(admin_uuid);
+CREATE INDEX idx_groups_deleted_at ON groups(deleted_at);
+CREATE INDEX idx_groups_name ON groups(name);
+
+FONCTIONNALITÉS:
+✅ Statistiques complètes (total, actifs, inactifs, membres, points)
+✅ Pagination native Supabase
+✅ Filtrage par statut (actif/inactif)
+✅ Filtrage par type (famille/entreprise/association/autre)
+✅ Recherche textuelle (nom, description)
+✅ Jointure avec la table profiles pour récupérer le nom de l'admin
+✅ Composant React complet fourni en exemple
+*/

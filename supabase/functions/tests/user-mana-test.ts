@@ -1,6 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-import { env } from './envConfig'
 
+import { env } from '../utils/envConfig'
 
 const supabaseurl = env.supabaseUrl;
 const supabasekey = env.supabaseAnonKey;
@@ -28,15 +27,15 @@ async function callFunction() {
         console.log('✅ Function response:', data)
         console.log(`📊 Nombre d'utilisateurs: ${data.summary.users.length}`)
 
-            // Itération avec forEach
-            data.summary.users.forEach((user, index) => {
-                console.log(`👤 Utilisateur ${index + 1}:`)
-                console.log(`   ID: ${user.idUser}`)
-                console.log(`   Nom: ${user.username}`)
-                console.log(`   Email: ${user.email}`)
-                console.log(`   Avatar: ${user.avatar || 'Aucun'}`)
-                console.log('---')
-            })
+        // Itération avec forEach
+        data.summary.users.forEach((user, index) => {
+            console.log(`👤 Utilisateur ${index + 1}:`)
+            console.log(`   ID: ${user.idUser}`)
+            console.log(`   Nom: ${user.username}`)
+            console.log(`   Email: ${user.email}`)
+            console.log(`   Avatar: ${user.avatar || 'Aucun'}`)
+            console.log('---')
+        })
 
     } else {
         const errorText = await response.text()

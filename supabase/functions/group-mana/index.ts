@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
         switch (method) {
             case "GET":
                 if (id !== "group-mana") {
-                    //data = await (supaClient, id);
+                    data = await (supaClient, id);
                     return new Response(
                         JSON.stringify(data),
                         { headers: {...corsHeaders, "Content-Type": "application/json" } },
