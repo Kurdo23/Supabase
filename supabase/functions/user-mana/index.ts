@@ -7,16 +7,15 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getCompleteUsersSummary, getUserDetail, softDelete, permanentlyDelete } from "./helpers.ts";
 import { createClient } from "@supabase/supabase-js";
 
-console.log("Hello from Functions!");
-console.log(Deno.env.get("SUPABASE_URL"));
-console.log(Deno.env.get("SUPABASE_ANON_KEY)"));
+
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 Deno.serve(async (req) => {
-    console.log('Request received:', req.method, req.url)
+    console.info('Request received:', req.method, req.url)
 
     const supaClient = createClient(
     Deno.env.get("SUPABASE_URL"),
