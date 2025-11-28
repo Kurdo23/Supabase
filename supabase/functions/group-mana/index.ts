@@ -5,10 +5,10 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import {createClient} from "@supabase/supabase-js";
-import {getCompleteUsersSummary, getUserDetail, permanentlyDelete, softDelete} from "../user-mana/helpers.ts";
 
 
-console.log("Hello from Functions!")
+
+console.log("Hello from group-mana!")
 export const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
