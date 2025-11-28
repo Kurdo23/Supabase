@@ -1,10 +1,5 @@
 # .gitignore pour projet Supabase
 
-# Environnement
-.env
-.env.*
-!.env.example
-
 # Dépendances
 node_modules/
 .npm
