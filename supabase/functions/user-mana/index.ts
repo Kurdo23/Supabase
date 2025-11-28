@@ -51,10 +51,21 @@ Deno.serve(async (req) => {
             data = await softDelete(supaClient, id);
             return new Response (
                 JSON.stringify(data),
-            {headers: {...corsHeaders,"Content-Type": "application/json"}},
+            {   status: 200,
+                headers: {...corsHeaders,"Content-Type": "application/json"}},
             );
         case "DELETE":
             data = await permanentlyDelete(supaClient, id);
+            return new Response (
+                JSON.stringify((data),
+                    {
+                        status: 200,
+                        headers: {
+                            ...corsHeaders,
+                            "Content-Type": "application/json"
+                        },
+                    })
+            )
       default:
         return new Response(
           JSON.stringify({ error: "Method not allowed" }),
