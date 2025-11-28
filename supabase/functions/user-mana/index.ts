@@ -6,14 +6,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getCompleteUsersSummary, getUserDetail, softDelete, permanentlyDelete } from "./helpers.ts";
 import { createClient } from "@supabase/supabase-js";
+import {corsHeaders} from "../../_shared/cors.ts";
 
 
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 Deno.serve(async (req) => {
     console.info('Request received:', req.method, req.url)
 
@@ -42,21 +37,21 @@ Deno.serve(async (req) => {
           data = await getUserDetail(supaClient, id);
             return new Response(
                 JSON.stringify(data),
-                { headers: { "Content-Type": "application/json" } },
+                { headers: {...corsHeaders, "Content-Type": "application/json" } },
             );
         } else {
           data = await getCompleteUsersSummary(supaClient);
           console.log(data);
             return new Response(
                 JSON.stringify(data),
-                { headers: { "Content-Type": "application/json" } },
+                { headers: {...corsHeaders, "Content-Type": "application/json" } },
             );
         }
         case "PUT":
             data = await softDelete(supaClient, id);
             return new Response (
                 JSON.stringify(data),
-            {headers: {"Content-Type": "application/json"}},
+            {headers: {...corsHeaders,"Content-Type": "application/json"}},
             );
         case "DELETE":
             data = await permanentlyDelete(supaClient, id);
