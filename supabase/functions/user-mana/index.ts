@@ -4,7 +4,7 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getCompleteUsersSummary, getUserDetail } from "./helpers.ts";
+import { getCompleteUsersSummary, getUserDetail, softDelete, permanentlyDelete } from "./helpers.ts";
 import { createClient } from "@supabase/supabase-js";
 
 console.log("Hello from Functions!");
@@ -53,6 +53,14 @@ Deno.serve(async (req) => {
                 { headers: { "Content-Type": "application/json" } },
             );
         }
+        case "PUT":
+            data = await softDelete(supaClient, id);
+            return new Response (
+                JSON.stringify(data),
+            {headers: {"Content-Type": "application/json"}},
+            );
+        case "DELETE":
+            data = await permanentlyDelete(supaClient, id);
       default:
         return new Response(
           JSON.stringify({ error: "Method not allowed" }),

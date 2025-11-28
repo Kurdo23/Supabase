@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { error } from "node:console";
 
 /**
  * Récupère TOUT en une seule fois :
@@ -260,5 +261,63 @@ export async function getUserDetail(supabase: SupabaseClient, idUser: string):Pr
         };
     }
 
+}
+
+export async function softDelete(supabase: SupabaseClient, idUser:string):Promise<CompleteResponse>{
+    try{
+        let query = supabase
+            .from('User')
+            .update({isSoftDelete: true}  )
+            .eq('idUser', idUser)
+
+        const { data, error: usersError, count: usersCount } = await query;
+        if (usersError) {
+            throw new Error(`Erreur utilisateurs: ${usersError.message}`);
+        }
+
+        return{
+            data,
+            error: null,
+            success: true,
+        }
+    }catch (err){
+        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.error('Erreur lors de la récupération complète:', errorMessage);
+
+        return {
+            summary: null,
+            error: errorMessage,
+            success: false,
+        };
+    }
+}
+
+export async function permanentlyDelete(supabase: SupabaseClient, idUser: string): Promise<CompleteResponse>{
+    try{
+        let query = supabase
+            .from('User')
+            .delete()
+            .eq('idUser', idUser)
+
+        const { data, error: usersError, count: usersCount } = await query;
+        if (usersError) {
+            throw new Error(`Erreur utilisateurs: ${usersError.message}`);
+        }
+
+        return{
+            data,
+            error: null,
+            success: true,
+        }
+    }catch(err){
+        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.error('Erreur lors de la récupération complète:', errorMessage);
+
+        return {
+            summary: null,
+            error: errorMessage,
+            success: false,
+        };
+    }
 }
 // TODO add avatar to the mix once it's available
