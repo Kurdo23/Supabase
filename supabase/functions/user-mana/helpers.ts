@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { error } from "node:console";
 
+// TODO check for response status to see if they all fit the right kind of response
 /**
  * Récupère TOUT en une seule fois :
  * - Les statistiques (total, actifs, inactifs, suspendus)

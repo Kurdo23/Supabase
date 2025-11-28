@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 
-
+// TODO check for response status to see if they all fit the right kind of response
 // ============================================
 // FONCTION PRINCIPALE
 // ============================================
@@ -322,54 +322,95 @@ export function getGroupTypeIcon(type: string): string {
     return icons[type] || '📁';
 }
 
-// ============================================
-// EXEMPLES D'UTILISATION
-// ============================================
+export function getGroupDetail(supabase: SupabaseClient, idGroup: string):Promise<CompleteResponse>{
+    try{
+        let query = supabase
+            .from('User')
+            .select('*', { count: 'exact' })
+            .eq('idUser', idUser) // TODO change query to fit function
 
-/**
- * Exemple 1: Récupération simple avec stats
- */
-async function exemple1() {
-    const supabase = createClient('YOUR_URL', 'YOUR_KEY');
+        const { data, error: usersError, count: usersCount } = await query;
+        if (usersError) {
+            throw new Error(`Erreur utilisateurs: ${usersError.message}`);
+        }
 
-    const result = await getCompleteGroupSummary(supabase, 1, 20);
+        const user: UserDetail = data || [];
+        return {
+            user,
+            error: null,
+            success: true,
+        };
 
-    if (result.success && result.summary) {
-        console.log('📊 STATISTIQUES:');
-        console.log(`Total groupes: ${result.summary.stats.totalGroups}`);
-        console.log(`Groupes actifs: ${result.summary.stats.activeGroups}`);
-        console.log(`Groupes inactifs: ${result.summary.stats.inactiveGroups}`);
-        console.log(`Total membres: ${result.summary.stats.totalMembers}`);
-        console.log(`Points totaux: ${formatPoints(result.summary.stats.totalPoints)}`);
+    }catch (err){
+        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.error('Erreur lors de la récupération complète:', errorMessage);
 
-        console.log('\n👥 GROUPES (page 1):');
-        result.summary.groups.forEach(group => {
-            console.log(`- ${group.name} (${group.member_count} membres) - Admin: ${group.admin_name}`);
-        });
+        return {
+            summary: null,
+            error: errorMessage,
+            success: false,
+        };
+    }
+
+}
+
+export function softDeleteGroup(supabase: SupabaseClient, idGroup: string): Promise<CompleteResponse>{
+    try{
+        let query = supabase
+            .from('User')
+            .update({isSoftDelete: true}  )
+            .eq('idUser', idUser) // TODO change query to fit function
+
+        const { data, error: usersError, count: usersCount } = await query;
+        if (usersError) {
+            throw new Error(`Erreur utilisateurs: ${usersError.message}`);
+        }
+
+        return{
+            data,
+            error: null,
+            success: true,
+        }
+    }catch (err){
+        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.error('Erreur lors de la récupération complète:', errorMessage);
+
+        return {
+            summary: null,
+            error: errorMessage,
+            success: false,
+        };
     }
 }
 
-/**
- * Exemple 2: Recherche et filtrage
- */
-async function exemple2() {
-    const supabase = createClient('YOUR_URL', 'YOUR_KEY');
+export function permanentelyDeleteGroup(supabase: SupabaseClient, idGroup: string):Promise<CompleteResponse>{
+    try{
+        let query = supabase
+            .from('User')
+            .delete()
+            .eq('idUser', idUser) // TODO change query to fit function
 
-    // Rechercher uniquement les groupes actifs de type "famille"
-    const result = await getCompleteGroupSummary(
-        supabase,
-        1,
-        20,
-        'active',
-        'family',
-        'Lyon' // Rechercher "Lyon" dans nom ou description
-    );
+        const { data, error: usersError, count: usersCount } = await query;
+        if (usersError) {
+            throw new Error(`Erreur utilisateurs: ${usersError.message}`);
+        }
 
-    if (result.success && result.summary) {
-        console.log(`Trouvé ${result.summary.groups.length} groupes familiaux actifs avec "Lyon"`);
+        return{
+            data,
+            error: null,
+            success: true,
+        }
+    }catch(err){
+        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
+        console.error('Erreur lors de la récupération complète:', errorMessage);
+
+        return {
+            summary: null,
+            error: errorMessage,
+            success: false,
+        };
     }
 }
-
 
 // ============================================
 // NOTES IMPORTANTES

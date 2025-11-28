@@ -6,6 +6,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import {createClient} from "@supabase/supabase-js";
 import {corsHeaders} from "../../_shared/cors.ts";
+import {getCompleteGroupSummary, getGroupDetail, permanentelyDeleteGroup, softDeleteGroup} from "./helpers.ts";
+
 
 
 console.log("Hello from group-mana!")
@@ -35,13 +37,13 @@ Deno.serve(async (req) => {
         switch (method) {
             case "GET":
                 if (id !== "group-mana") {
-                    data = await (supaClient, id);
+                    data = await getGroupDetail(supaClient, id);
                     return new Response(
                         JSON.stringify(data),
                         { headers: {...corsHeaders, "Content-Type": "application/json" } },
                     );
                 } else {
-                   // data = await getCompleteUsersSummary(supaClient);
+                    data = await getCompleteGroupSummary(supaClient);
                     console.log(data);
                     return new Response(
                         JSON.stringify(data),
@@ -49,13 +51,13 @@ Deno.serve(async (req) => {
                     );
                 }
             case "PUT":
-               // data = await softDelete(supaClient, id);
+                data = await softDeleteGroup(supaClient, id);
                 return new Response (
                     JSON.stringify(data),
                     {headers: {...corsHeaders, "Content-Type": "application/json"}},
                 );
             case "DELETE":
-               // data = await permanentlyDelete(supaClient, id);
+                data = await permanentelyDeleteGroup(supaClient, id);
             default:
                 return new Response(
                     JSON.stringify({ error: "Method not allowed" }),
