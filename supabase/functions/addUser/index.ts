@@ -22,39 +22,48 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Récupérer l'id depuis le corps JSON
-    const { id } = await req.json();
+    // Récupérer l'objet utilisateur depuis le corps JSON
+    const userProfil = await req.json();
 
-    if (!id) {
+    if (!userProfil || !userProfil.id) {
       return new Response(
-          JSON.stringify({ error: "Paramètre 'id' manquant" }),
+          JSON.stringify({ error: "Paramètres utilisateur manquants ou invalides" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Requête Supabase pour récupérer un seul utilisateur
-    const { data, error } = await supabase
+    // Insérer l'utilisateur dans la table "User"
+    const { error } = await supabase
         .from("User")
-        .select()
-        .eq("idUser", id)
-        .single();
+        .insert({
+          idUser: userProfil.id,
+          name: userProfil.name,
+          lastname: userProfil.lastname,
+          email: userProfil.email,
+          username: userProfil.username,
+          isadmin: userProfil.isadmin,
+          dateinscription: userProfil.dateinscription,
+          lastmodified: userProfil.lastmodified,
+          xp: userProfil.xp
+        });
 
     if (error) {
-      console.error("Erreur fetchUser:", error.message);
+      console.error("Erreur addUser:", error.message);
       return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ success: false, error: error.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     return new Response(
-        JSON.stringify(data),
+        JSON.stringify({ success: true }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (err) {
     console.error("Erreur serveur:", err);
     return new Response(
-        JSON.stringify({ error: "Erreur serveur" }),
+        JSON.stringify({ success: false, error: "Erreur serveur" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

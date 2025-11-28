@@ -1,11 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Récupération des variables d'environnement
+// Récupère les variables d'environnement
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-// Création du client Supabase
+// Crée le client Supabase
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // En-têtes CORS
@@ -14,33 +14,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
-// Edge Function
+// Serve l'Edge Function
 Deno.serve(async (req) => {
-  // Gérer les requêtes OPTIONS pour le pré-vol CORS
+  // Autoriser OPTIONS pour le pré-vol CORS
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Récupérer l'id depuis le corps JSON
-    const { id } = await req.json();
-
-    if (!id) {
-      return new Response(
-          JSON.stringify({ error: "Paramètre 'id' manquant" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Requête Supabase pour récupérer un seul utilisateur
-    const { data, error } = await supabase
-        .from("User")
-        .select()
-        .eq("idUser", id)
-        .single();
+    // Récupère tous les utilisateurs depuis la table "User"
+    const { data, error } = await supabase.from("User").select();
 
     if (error) {
-      console.error("Erreur fetchUser:", error.message);
+      console.error("Erreur fetchUsers:", error.message);
       return new Response(
           JSON.stringify({ error: error.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
