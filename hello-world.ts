@@ -1,21 +1,47 @@
 import { createClient } from '@supabase/supabase-js'
-import { env } from './utils/envConfig'
+import { env } from './envConfig'
 
 
-const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey)
+const supabaseurl = env.supabaseUrl;
+const supabasekey = env.supabaseAnonKey;
 
 async function callFunction() {
-    const { data, error } = await supabase.functions.invoke('hello-world', {
-        body: { name: 'Functions' } //Change functions by whatever you feel like to get the right message"
+    // Si env.supabaseUrl est seulement "wmqyotlomevvdswmiful"
+    const functionUrl = `${env.supabaseUrl}/functions/v1/user-mana`
+
+    console.log('🔗 Calling URL:', functionUrl)
+    console.log(supabaseurl)
+    console.log(supabasekey)
+    const response = await fetch(`${supabaseurl}/functions/v1/user-mana`, {
+        method: 'GET',
+        headers: {
+            Authorization: `Bearer ${env.supabaseAnonKey}`,
+            'Content-Type': 'application/json',
+        },
     })
 
-    if (error) {
-        console.error('Error:', error)
-        return
-    }
+    console.log('Status:', response.status)
+    console.log('Status Text:', response.statusText)
 
-    console.log('Success:', data)
-    return data
+    if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Function response:', data)
+        console.log(`📊 Nombre d'utilisateurs: ${data.summary.users.length}`)
+
+            // Itération avec forEach
+            data.summary.users.forEach((user, index) => {
+                console.log(`👤 Utilisateur ${index + 1}:`)
+                console.log(`   ID: ${user.idUser}`)
+                console.log(`   Nom: ${user.username}`)
+                console.log(`   Email: ${user.email}`)
+                console.log(`   Avatar: ${user.avatar || 'Aucun'}`)
+                console.log('---')
+            })
+
+    } else {
+        const errorText = await response.text()
+        console.log('❌ Error response:', errorText)
+    }
 }
 
 // Appeler la fonction
