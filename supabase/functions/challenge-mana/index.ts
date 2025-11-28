@@ -4,21 +4,84 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import {createClient} from "@supabase/supabase-js";
 
-console.log("Hello from Functions!")
+console.log("Hello from challenge-mana!")
 
+export const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 Deno.serve(async (req) => {
-  const { name } = await req.json()
-  const data = {
-    message: `Hello ${name}!`,
-  }
+    console.info('Request received:', req.method, req.url)
 
-  return new Response(
-    JSON.stringify(data),
-    { headers: { "Content-Type": "application/json" } },
-  )
+    const supaClient = createClient(
+        Deno.env.get("SUPABASE_URL"),
+        Deno.env.get("SUPABASE_ANON_KEY"),
+    );
+
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders })
+    }
+
+
+    const url = new URL(req.url);
+    const method = req.method;
+    const command = url.pathname.split("/").pop();
+    console.log(command);
+    const id = command;
+    console.log(id);
+    let data;
+    try {
+        switch (method) {
+            case "GET":
+                if (id !== "group-mana") {
+                    //data = await (supaClient, id);
+                    return new Response(
+                        JSON.stringify(data),
+                        { headers: { "Content-Type": "application/json" } },
+                    );
+                } else {
+                    // data = await getCompleteUsersSummary(supaClient);
+                    console.log(data);
+                    return new Response(
+                        JSON.stringify(data),
+                        { headers: { "Content-Type": "application/json" } },
+                    );
+                }
+            case "PUT":
+                // data = await softDelete(supaClient, id);
+                return new Response (
+                    JSON.stringify(data),
+                    {headers: {"Content-Type": "application/json"}},
+                );
+            case "DELETE":
+            // data = await permanentlyDelete(supaClient, id);
+            default:
+                return new Response(
+                    JSON.stringify({ error: "Method not allowed" }),
+                    {
+                        headers: { ...corsHeaders, "Content-Type": "application/json" },
+                        status: 405,
+                    },
+                )
+        }
+
+    }
+    catch (err) {
+        console.error("Error:", err);
+
+        return new Response(
+            JSON.stringify({ error: err.message }),
+            {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 400,
+            },
+        );
+    }
 })
-
 /* To invoke locally:
 
   1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
