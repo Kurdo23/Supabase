@@ -1,16 +1,14 @@
 import {SupabaseClient} from "@supabase/supabase-js";
 
 interface GroupProfile {
-    uuid: string;
+    idGroup: number;
     name: string;
-    description: string | null;
-    avatar: string | null;
-    status: 'active' | 'inactive';
-    type: 'family' | 'enterprise' | 'association' | 'other';
-    member_count: number;
-    total_points: number;
-    admin_name: string;
-    admin_uuid: string;
+    description: string;
+    logo: string;
+    isOpen: boolean;
+    isCertified: boolean;
+    isPublic: boolean;
+    isSoftDelete: boolean;
     created_at: string;
 }
 

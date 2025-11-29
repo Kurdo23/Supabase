@@ -42,39 +42,38 @@ export async function getCompleteGroupSummary(
 
         // Total groupes
         const { count: totalCount, error: totalError } = await supabase
-            .from('groups')
+            .from('Group')
             .select('*', { count: 'exact', head: true })
-            .is('deleted_at', null);
+
 
         if (totalError) throw new Error(`Erreur total: ${totalError.message}`);
 
         // Groupes actifs
         const { count: activeCount, error: activeError } = await supabase
-            .from('groups')
+            .from('Group')
             .select('*', { count: 'exact', head: true })
-            .is('deleted_at', null)
-            .eq('status', 'active');
+            .is('isSoftDelete', false)
 
         if (activeError) throw new Error(`Erreur actifs: ${activeError.message}`);
 
         // Groupes inactifs
         const inactiveCount = (totalCount || 0) - (activeCount || 0);
 
-        // Total membres (somme de tous les member_count)
+      /*  // Total membres (somme de tous les member_count)
         const { data: memberData, error: memberError } = await supabase
-            .from('groups')
-            .select('member_count')
-            .is('deleted_at', null);
+            .from('GroupMember')
+            .select('idUser', {count: 'exact', head: true})
+            .eq('idGroup', idGroup)*/
 
         if (memberError) throw new Error(`Erreur membres: ${memberError.message}`);
 
         const totalMembers = memberData?.reduce((sum, group) => sum + (group.member_count || 0), 0) || 0;
 
-        // Total points (somme de tous les total_points)
+       /* // Total points (somme de tous les total_points)
         const { data: pointsData, error: pointsError } = await supabase
             .from('groups')
             .select('total_points')
-            .is('deleted_at', null);
+            .is('deleted_at', null);*/
 
         if (pointsError) throw new Error(`Erreur points: ${pointsError.message}`);
 
@@ -98,40 +97,35 @@ export async function getCompleteGroupSummary(
 
         // Construction de la requête avec jointure sur les admins
         let query = supabase
-            .from('groups')
+            .from('Group')
             .select(`
-        uuid,
+        idGroup,
         name,
         description,
-        avatar,
-        status,
-        type,
-        member_count,
-        total_points,
+        logo,
+        isOpen,
+        isCertified,
+        isPublic,
+        isSoftDelete,
         created_at,
-        admin_uuid,
-        profiles!groups_admin_uuid_fkey (
-          name
-        )
       `, { count: 'exact' })
-            .is('deleted_at', null)
             .range(from, to)
-            .order('name', { ascending: true });
+            //.order('name', { ascending: true });
 
-        // Appliquer le filtre de statut
+        /*// Appliquer le filtre de statut
         if (statusFilter !== 'all') {
             query = query.eq('status', statusFilter);
-        }
+        }*/
 
-        // Appliquer le filtre de type
+        /*// Appliquer le filtre de type
         if (typeFilter !== 'all') {
             query = query.eq('type', typeFilter);
-        }
+        }*/
 
-        // Appliquer la recherche
+        /*// Appliquer la recherche
         if (searchQuery && searchQuery.trim()) {
             query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
-        }
+        }*/
 
         const { data, error: groupsError, count: groupsCount } = await query;
 
@@ -141,16 +135,14 @@ export async function getCompleteGroupSummary(
 
         // Transformer les données pour le format attendu
         const groups: GroupProfile[] = (data || []).map((group: any) => ({
-            uuid: group.uuid,
+            idGroup: group.idGroup,
             name: group.name,
             description: group.description,
-            avatar: group.avatar,
-            status: group.status,
-            type: group.type,
-            member_count: group.member_count || 0,
-            total_points: group.total_points || 0,
-            admin_name: group.profiles?.name || 'Admin inconnu',
-            admin_uuid: group.admin_uuid,
+            logo: group.logo,
+            isOpen: group.isOpen,
+            isCertified: group.isCertified,
+            isPublic: group.isPublic,
+            isSoftDelete: group.isSoftDelete,
             created_at: group.created_at,
         }));
 
@@ -322,12 +314,12 @@ export function getGroupTypeIcon(type: string): string {
     return icons[type] || '📁';
 }
 
-export function getGroupDetail(supabase: SupabaseClient, idGroup: string):Promise<CompleteResponse>{
+export function getGroupDetail(supabase: SupabaseClient, idGroup: number):Promise<CompleteResponse>{
     try{
         let query = supabase
-            .from('User')
+            .from('Group')
             .select('*', { count: 'exact' })
-            .eq('idUser', idUser) // TODO change query to fit function
+            .eq('idGroup', idGroup)
 
         const { data, error: usersError, count: usersCount } = await query;
         if (usersError) {
@@ -354,12 +346,12 @@ export function getGroupDetail(supabase: SupabaseClient, idGroup: string):Promis
 
 }
 
-export function softDeleteGroup(supabase: SupabaseClient, idGroup: string): Promise<CompleteResponse>{
+export function softDeleteGroup(supabase: SupabaseClient, idGroup: number): Promise<CompleteResponse>{
     try{
         let query = supabase
-            .from('User')
+            .from('idGroup')
             .update({isSoftDelete: true}  )
-            .eq('idUser', idUser) // TODO change query to fit function
+            .eq('idGroup', idGroup)
 
         const { data, error: usersError, count: usersCount } = await query;
         if (usersError) {
@@ -383,12 +375,12 @@ export function softDeleteGroup(supabase: SupabaseClient, idGroup: string): Prom
     }
 }
 
-export function permanentelyDeleteGroup(supabase: SupabaseClient, idGroup: string):Promise<CompleteResponse>{
+export function permanentelyDeleteGroup(supabase: SupabaseClient, idGroup: number):Promise<CompleteResponse>{
     try{
         let query = supabase
-            .from('User')
+            .from('idGroup')
             .delete()
-            .eq('idUser', idUser) // TODO change query to fit function
+            .eq('idGroup', idGroup)
 
         const { data, error: usersError, count: usersCount } = await query;
         if (usersError) {
