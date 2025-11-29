@@ -388,3 +388,47 @@ entrypoint = "./functions/addUser/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/addUser/*.html" ]
+
+[functions.JoinGroup]
+enabled = true
+verify_jwt = true
+import_map = "./functions/JoinGroup/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/JoinGroup/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/JoinGroup/*.html" ]
+
+[functions.getModeratorJoinResquests]
+enabled = true
+verify_jwt = true
+import_map = "./functions/getModeratorJoinResquests/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/getModeratorJoinResquests/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/getModeratorJoinResquests/*.html" ]
+
+[functions.joinGroup]
+enabled = true
+verify_jwt = true
+import_map = "./functions/joinGroup/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/joinGroup/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/joinGroup/*.html" ]
+
+[functions.respondToJoinRequest]
+enabled = true
+verify_jwt = true
+import_map = "./functions/respondToJoinRequest/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/respondToJoinRequest/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/respondToJoinRequest/*.html" ]
