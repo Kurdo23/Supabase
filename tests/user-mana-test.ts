@@ -1,11 +1,12 @@
+import {env } from '../envConfig'
 
 
-//const supabaseurl = env.supabaseUrl;
-//const supabasekey = env.supabaseAnonKey;
+async function callFunction() {
+    const supabaseurl = env.supabaseUrl;
+    const supabasekey = env.supabaseAnonKey;
 
-/*async function callFunction() {
     // Si env.supabaseUrl est seulement "wmqyotlomevvdswmiful"
-    const functionUrl = `${env.supabaseUrl}/functions/v1/user-mana`
+    const functionUrl = `${supabaseurl}/functions/v1/user-mana`
     console.log(functionUrl)
 
     console.log('🔗 Calling URL:', functionUrl)
@@ -14,7 +15,7 @@
     const response = await fetch(`${supabaseurl}/functions/v1/user-mana`, {
         method: 'GET',
         headers: {
-            Authorization: `Bearer ${env.supabaseAnonKey}`,
+            Authorization: `Bearer ${supabasekey}`,
             'Content-Type': 'application/json',
         },
     })
@@ -41,7 +42,7 @@
         const errorText = await response.text()
         console.log('❌ Error response:', errorText)
     }
-}*/
+}
 
 // Appeler la fonction
-//callFunction()
+callFunction()

@@ -1,11 +1,13 @@
 import {createClient} from "@supabase/supabase-js";
+
+import {env} from '../envConfig'
 import {
     formatPoints,
     getCompleteGroupSummary,
-    getGroupDetail, permanentelyDeleteGroup,
+    getGroupDetail,
+    permanentelyDeleteGroup,
     softDeleteGroup
-} from "./supabase/functions/group-mana/helpers";
-import {env} from './envConfig'
+} from "../supabase/functions/group-mana/helpers";
 async function exemple1() {
     const supabaseurl = env.supabaseUrl ;
     const supabasekey = env.supabaseAnonKey ;
@@ -26,7 +28,7 @@ async function exemple1() {
         result.summary.groups.forEach(group => {
             console.log(group.name)
             console.log(group.logo)
-           // console.log(`- ${group.name} (${group.member_count} membres) - Admin: ${group.admin_name}`);
+            // console.log(`- ${group.name} (${group.member_count} membres) - Admin: ${group.admin_name}`);
         });
     }
 }
