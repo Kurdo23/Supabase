@@ -46,3 +46,4 @@ interface CompleteGroupResponse {
     error: string | null;
     success: boolean;
 }
+

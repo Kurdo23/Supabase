@@ -1,12 +1,12 @@
 
-import { env } from '../utils/envConfig'
 
-const supabaseurl = env.supabaseUrl;
-const supabasekey = env.supabaseAnonKey;
+//const supabaseurl = env.supabaseUrl;
+//const supabasekey = env.supabaseAnonKey;
 
-async function callFunction() {
+/*async function callFunction() {
     // Si env.supabaseUrl est seulement "wmqyotlomevvdswmiful"
     const functionUrl = `${env.supabaseUrl}/functions/v1/user-mana`
+    console.log(functionUrl)
 
     console.log('🔗 Calling URL:', functionUrl)
     console.log(supabaseurl)
@@ -41,7 +41,7 @@ async function callFunction() {
         const errorText = await response.text()
         console.log('❌ Error response:', errorText)
     }
-}
+}*/
 
 // Appeler la fonction
-callFunction()
+//callFunction()

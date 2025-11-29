@@ -1,11 +1,16 @@
 import {createClient} from "@supabase/supabase-js";
 import {formatPoints, getCompleteGroupSummary} from "../group-mana/helpers";
 
+
+
+
 /**
  * Exemple 1: Récupération simple avec stats
  */
-async function exemple1() {
-    const supabase = createClient('YOUR_URL', 'YOUR_KEY');
+/*async function exemple1() {
+    const supabaseurl = env.supabaseUrl ;
+    const supabasekey = env.supabaseAnonKey ;
+    const supabase = createClient(supabaseurl, supabasekey);
 
     const result = await getCompleteGroupSummary(supabase, 1, 20);
 
@@ -23,7 +28,7 @@ async function exemple1() {
         });
     }
 }
-
+exemple1()*/
 /**
  * Exemple 2: Recherche et filtrage
  */

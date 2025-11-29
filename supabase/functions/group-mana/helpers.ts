@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import stat = Deno.stat;
 
 // TODO check for response status to see if they all fit the right kind of response
 // ============================================
@@ -48,16 +49,16 @@ export async function getCompleteGroupSummary(
 
         if (totalError) throw new Error(`Erreur total: ${totalError.message}`);
 
-        // Groupes actifs
-        const { count: activeCount, error: activeError } = await supabase
+        // Groupes inactif
+        const { count: inactiveCount, error: activeError } = await supabase
             .from('Group')
             .select('*', { count: 'exact', head: true })
-            .is('isSoftDelete', false)
+            .is('isSoftDelete', true)
 
         if (activeError) throw new Error(`Erreur actifs: ${activeError.message}`);
 
         // Groupes inactifs
-        const inactiveCount = (totalCount || 0) - (activeCount || 0);
+        const activeCount = (totalCount || 0) - ( inactiveCount|| 0);
 
       /*  // Total membres (somme de tous les member_count)
         const { data: memberData, error: memberError } = await supabase
@@ -65,9 +66,9 @@ export async function getCompleteGroupSummary(
             .select('idUser', {count: 'exact', head: true})
             .eq('idGroup', idGroup)*/
 
-        if (memberError) throw new Error(`Erreur membres: ${memberError.message}`);
+        //if (memberError) throw new Error(`Erreur membres: ${memberError.message}`);
 
-        const totalMembers = memberData?.reduce((sum, group) => sum + (group.member_count || 0), 0) || 0;
+        //const totalMembers = memberData?.reduce((sum, group) => sum + (group.member_count || 0), 0) || 0;
 
        /* // Total points (somme de tous les total_points)
         const { data: pointsData, error: pointsError } = await supabase
@@ -75,10 +76,11 @@ export async function getCompleteGroupSummary(
             .select('total_points')
             .is('deleted_at', null);*/
 
-        if (pointsError) throw new Error(`Erreur points: ${pointsError.message}`);
+        //if (pointsError) throw new Error(`Erreur points: ${pointsError.message}`);
 
-        const totalPoints = pointsData?.reduce((sum, group) => sum + (group.total_points || 0), 0) || 0;
-
+        //const totalPoints = pointsData?.reduce((sum, group) => sum + (group.total_points || 0), 0) || 0;µ
+        let totalPoints = 0;
+        let totalMembers = 0;
         const stats: GroupStats = {
             totalGroups: totalCount || 0,
             activeGroups: activeCount || 0,
@@ -98,17 +100,7 @@ export async function getCompleteGroupSummary(
         // Construction de la requête avec jointure sur les admins
         let query = supabase
             .from('Group')
-            .select(`
-        idGroup,
-        name,
-        description,
-        logo,
-        isOpen,
-        isCertified,
-        isPublic,
-        isSoftDelete,
-        created_at,
-      `, { count: 'exact' })
+            .select('*', { count: 'exact' })
             .range(from, to)
             //.order('name', { ascending: true });
 
@@ -314,21 +306,22 @@ export function getGroupTypeIcon(type: string): string {
     return icons[type] || '📁';
 }
 
-export function getGroupDetail(supabase: SupabaseClient, idGroup: number):Promise<CompleteResponse>{
+export async function getGroupDetail(supabase: SupabaseClient, idGroup: number):Promise<CompleteResponse>{
     try{
         let query = supabase
             .from('Group')
             .select('*', { count: 'exact' })
             .eq('idGroup', idGroup)
+            .single();
 
-        const { data, error: usersError, count: usersCount } = await query;
+        const { data, error: usersError } = await query;
         if (usersError) {
             throw new Error(`Erreur utilisateurs: ${usersError.message}`);
         }
 
-        const user: UserDetail = data || [];
+        const group: GroupProfile = data || [];
         return {
-            user,
+            group,
             error: null,
             success: true,
         };
@@ -346,18 +339,21 @@ export function getGroupDetail(supabase: SupabaseClient, idGroup: number):Promis
 
 }
 
-export function softDeleteGroup(supabase: SupabaseClient, idGroup: number): Promise<CompleteResponse>{
+export async function softDeleteGroup(supabase: SupabaseClient, idGroup: number): Promise<CompleteResponse>{
     try{
         let query = supabase
-            .from('idGroup')
+            .from('Group')
             .update({isSoftDelete: true}  )
             .eq('idGroup', idGroup)
 
-        const { data, error: usersError, count: usersCount } = await query;
-        if (usersError) {
-            throw new Error(`Erreur utilisateurs: ${usersError.message}`);
+        const {  error: groupError } = await query;
+        if (groupError) {
+            throw new Error(`Erreur utilisateurs: ${groupError.message}`);
         }
-
+        const data = {
+            status: 200,
+            message: "soft delete completed",
+        }
         return{
             data,
             error: null,
@@ -368,27 +364,30 @@ export function softDeleteGroup(supabase: SupabaseClient, idGroup: number): Prom
         console.error('Erreur lors de la récupération complète:', errorMessage);
 
         return {
-            summary: null,
+            data: null,
             error: errorMessage,
             success: false,
         };
     }
 }
 
-export function permanentelyDeleteGroup(supabase: SupabaseClient, idGroup: number):Promise<CompleteResponse>{
+export async function permanentelyDeleteGroup(supabase: SupabaseClient, idGroup: number):Promise<CompleteResponse>{
     try{
         let query = supabase
-            .from('idGroup')
+            .from('Group')
             .delete()
             .eq('idGroup', idGroup)
 
-        const { data, error: usersError, count: usersCount } = await query;
-        if (usersError) {
-            throw new Error(`Erreur utilisateurs: ${usersError.message}`);
+        const { error: DeleteError } = await query;
+        if (DeleteError) {
+            throw new Error(`Erreur utilisateurs: ${DeleteError.message}`);
         }
-
+        let response = {
+            status: 200,
+            message: "hard delete completed"
+        }
         return{
-            data,
+            response,
             error: null,
             success: true,
         }
