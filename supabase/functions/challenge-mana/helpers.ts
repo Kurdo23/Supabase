@@ -89,6 +89,7 @@ export async function getChallSummary(
 export async function addChall(
   supabase: SupabaseClient,
   newChall: {
+      idChallenge: number
       name?: string;
       isGlobal: boolean
       description?: string;
@@ -101,17 +102,18 @@ export async function addChall(
 ): Promise<CompleteResponse> {
   try {
       // Insérer le nouveau challenge
-      const { data: newChall, error: insertError } = await supabase
+      const { data: challData, error: insertError } = await supabase
           .from("Challenge")
           .insert({
-              name: challData.name,
-              description: challData.description,
-              objective: challData.objective,
-              isActive: challData.isActive ?? false,
-              isDraft: challData.isDraft ?? true,
-              isGlobal: challData.isGlobal ?? true,
-              startDateTime: challData.startDateTime ?? null,
-              endDateTime: challData.endDateTime ?? null,
+              idChallenge: newChall.idChallenge,
+              name: newChall.name,
+              description: newChall.description,
+              objective: newChall.objective,
+              isActive: newChall.isActive ?? false,
+              isDraft: newChall.isDraft ?? true,
+              isGlobal: newChall.isGlobal ?? true,
+              startDateTime: newChall.startDateTime ?? null,
+              endDateTime: newChall.endDateTime ?? null,
           })
           .select()
           .single();

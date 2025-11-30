@@ -80,4 +80,4 @@ async function exemple4() {
         console.log(result.response)
     }
 }
-exemple4();
+//exemple4();

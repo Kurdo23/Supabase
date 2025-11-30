@@ -6,8 +6,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import {createClient} from "@supabase/supabase-js";
 import {corsHeaders} from "../../_shared/cors.ts";
-import {c} from "npm:tar@7.5.2";
 import {addChall, deleteChallenge, getChallSummary, updateChallenge} from "./helpers.ts";
+
 
 console.log("Hello from challenge-mana!")
 
@@ -27,12 +27,11 @@ Deno.serve(async (req) => {
 
 
     const url = new URL(req.url);
+    console.log(url.pathname);
     const method = req.method;
-    const command = url.pathname.split("/").pop();
-    console.log(command);
-    const id = command;
-    console.log(id);
-    const body = req.body
+    const searchParam = url.searchParams.get('id') || null;
+    const body = req.json();
+    console.log(body)
     let data;
     try {
         switch (method) {
@@ -49,13 +48,13 @@ Deno.serve(async (req) => {
                         {headers: {...corsHeaders, "Content-Type": "application/json"}},
                     )
             case "PUT":
-                data = await updateChallenge(supaClient, id);
+                data = await updateChallenge(supaClient, searchParam);
                 return new Response (
                     JSON.stringify(data),
                     {headers: {...corsHeaders, "Content-Type": "application/json"}},
                 );
             case "DELETE":
-                 data = await deleteChallenge(supaClient, id);
+                 data = await deleteChallenge(supaClient, searchParam);
                  return new Response(
                     JSON.stringify(data),
                      {headers: {...corsHeaders, "Content-Type": "application/json"}},
