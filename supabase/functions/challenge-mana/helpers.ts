@@ -10,9 +10,9 @@ export async function getCompleteChallSummary(
 
 export async function getChallSummary(
   supabase: SupabaseClient,
-  idChall: number,
 ): Promise<CompleteResponse> {
   try {
+      console.log("I'm in the chall summary function")
     //Défis globals totaux
     const { count: totalCount, error: totalError } = await supabase
       .from("Challenge")
@@ -39,17 +39,17 @@ export async function getChallSummary(
     };
 
     // Récupérer les challenges
-    const { challenges, error: challError } = await supabase
+    const { challenges: challDetail, error: challError } = await supabase
       .from("Challenge")
       .select("*")
-      .is("isGlobal", true);
+      .eq("isGlobal", true);
 
     if (challError) {
       throw new Error(`Erreur lors du fetch des défis: ${challError.message}`);
     }
 
     // Stock data
-    const challs: ChallDetail[] = (challenges || []).map((chall: any) => ({
+    const challs: ChallDetail[] = (challDetail || []).map((chall: any) => ({
       idChall: chall.idChall,
       name: chall.name,
       isGlobal: chall.isGlobal,
@@ -90,9 +90,9 @@ export async function addChall(
   supabase: SupabaseClient,
   newChall: {
       idChallenge: number
-      name?: string;
+      name: string;
       isGlobal: boolean
-      description?: string;
+      description: string;
       startDateTime: string;
       endDateTime: string;
       objective: string;

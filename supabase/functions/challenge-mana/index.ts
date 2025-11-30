@@ -27,11 +27,15 @@ Deno.serve(async (req) => {
 
 
     const url = new URL(req.url);
-    console.log(url.pathname);
+    console.log("Url pathname: " + url.pathname);
     const method = req.method;
     const searchParam = url.searchParams.get('id') || null;
-    const body = req.json();
-    console.log(body)
+    let body;
+    if(req.method === 'POST'){
+        body =  req.json() || null;
+        console.log("Le body de la requête si dispo: " + body);
+    }
+
     let data;
     try {
         switch (method) {
