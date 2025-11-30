@@ -124,6 +124,7 @@ async function createGroup(body: CreateGroupBody): Promise<Response> {
 
 async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response> {
     const { userId } = body;
+
     if (!userId) return jsonError("userId requis", 400);
 
     const { data: group, error: gError } = await supabase
