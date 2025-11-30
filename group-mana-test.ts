@@ -1,13 +1,13 @@
 import {createClient} from "@supabase/supabase-js";
 
-import {env} from '../envConfig'
+import {env} from './envConfig'
 import {
     formatPoints,
     getCompleteGroupSummary,
     getGroupDetail,
     permanentelyDeleteGroup,
     softDeleteGroup
-} from "../supabase/functions/group-mana/helpers";
+} from "./supabase/functions/group-mana/helpers";
 async function exemple1() {
     const supabaseurl = env.supabaseUrl ;
     const supabasekey = env.supabaseAnonKey ;

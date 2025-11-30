@@ -4,26 +4,32 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getCompleteUsersSummary, getUserDetail, softDelete, permanentlyDelete } from "./helpers.ts";
+import {
+  getCompleteUsersSummary,
+  getUserDetail,
+  permanentlyDelete,
+  softDelete,
+} from "./helpers.ts";
 import { createClient } from "@supabase/supabase-js";
-import {corsHeaders} from "../../_shared/cors.ts";
-
+import { corsHeaders } from "../../_shared/cors.ts";
 
 Deno.serve(async (req) => {
-    console.info('Request received:', req.method, req.url)
+  console.info("Request received:", req.method, req.url);
 
-    const supaClient = createClient(
+  const supaClient = createClient(
     Deno.env.get("SUPABASE_URL"),
     Deno.env.get("SUPABASE_ANON_KEY"),
-    );
+  );
 
-    // Handle CORS preflight
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
-    }
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
-
-    const url = new URL(req.url);
+  const url = new URL(req.url);
+  console.log(url);
+  const searchId = url.searchParams.get('id') || null;
+  console.log(searchId);
   const method = req.method;
   const command = url.pathname.split("/").pop();
   console.log(command);
@@ -33,39 +39,40 @@ Deno.serve(async (req) => {
   try {
     switch (method) {
       case "GET":
-        if (id !== "user-mana") {
-          data = await getUserDetail(supaClient, id);
-            return new Response(
-                JSON.stringify(data),
-                { headers: {...corsHeaders, "Content-Type": "application/json" } },
-            );
+        if (searchId != null) {
+          data = await getUserDetail(supaClient, searchId);
+          return new Response(
+            JSON.stringify(data),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
         } else {
           data = await getCompleteUsersSummary(supaClient);
           console.log(data);
-            return new Response(
-                JSON.stringify(data),
-                { headers: {...corsHeaders, "Content-Type": "application/json" } },
-            );
+          return new Response(
+            JSON.stringify(data),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
         }
-        case "PUT":
-            data = await softDelete(supaClient, id);
-            return new Response (
-                JSON.stringify(data),
-            {   status: 200,
-                headers: {...corsHeaders,"Content-Type": "application/json"}},
-            );
-        case "DELETE":
-            data = await permanentlyDelete(supaClient, id);
-            return new Response (
-                JSON.stringify((data),
-                    {
-                        status: 200,
-                        headers: {
-                            ...corsHeaders,
-                            "Content-Type": "application/json"
-                        },
-                    })
-            )
+      case "PUT":
+        data = await softDelete(supaClient, id);
+        return new Response(
+          JSON.stringify(data),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      case "DELETE":
+        data = await permanentlyDelete(supaClient, id);
+        return new Response(
+          JSON.stringify(data, {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }),
+        );
       default:
         return new Response(
           JSON.stringify({ error: "Method not allowed" }),
@@ -73,11 +80,9 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 405,
           },
-        )
+        );
     }
-
-  }
-  catch (err) {
+  } catch (err) {
     console.error("Error:", err);
 
     return new Response(

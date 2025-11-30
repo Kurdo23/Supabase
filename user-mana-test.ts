@@ -1,4 +1,4 @@
-import {env } from '../envConfig'
+import {env } from './envConfig'
 
 
 async function callFunction() {
@@ -8,11 +8,11 @@ async function callFunction() {
     // Si env.supabaseUrl est seulement "wmqyotlomevvdswmiful"
     const functionUrl = `${supabaseurl}/functions/v1/user-mana`
     console.log(functionUrl)
-
+    const param = new URLSearchParams({id: '39a00557-a80e-4b56-8653-bdbe6bb9c8f8'})
     console.log('🔗 Calling URL:', functionUrl)
     console.log(supabaseurl)
     console.log(supabasekey)
-    const response = await fetch(`${supabaseurl}/functions/v1/user-mana`, {
+    const response = await fetch(`${supabaseurl}/functions/v1/user-mana?${param}`, {
         method: 'GET',
         headers: {
             Authorization: `Bearer ${supabasekey}`,
@@ -25,7 +25,8 @@ async function callFunction() {
 
     if (response.ok) {
         const data = await response.json()
-        console.log('✅ Function response:', data)
+        console.log(data);
+     /*   console.log('✅ Function response:', data)
         console.log(`📊 Nombre d'utilisateurs: ${data.summary.users.length}`)
 
         // Itération avec forEach
@@ -37,7 +38,7 @@ async function callFunction() {
             console.log(`   Avatar: ${user.avatar || 'Aucun'}`)
             console.log('---')
         })
-
+        */
     } else {
         const errorText = await response.text()
         console.log('❌ Error response:', errorText)
