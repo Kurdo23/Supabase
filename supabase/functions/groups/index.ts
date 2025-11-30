@@ -1,5 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type {
+    GroupWithRelations,
+    CreateGroupBody,
+    JoinGroupBody,
+} from "./interface.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -138,6 +143,7 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
         if (insertError) return jsonError("Erreur adhésion", 500);
         return jsonOk({ status: "member" });
     }
+
     return jsonOk({ status: "pending" });
 }
 
