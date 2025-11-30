@@ -10,9 +10,10 @@ interface ChallDetail {
     description: string,
     startDateTime: string,
     endDateTime: string,
-    objective: string,
+    objective: number,
     isDraft: boolean,
     isActive: boolean,
+    goal: string,
 }
 
 interface ChallSummary{

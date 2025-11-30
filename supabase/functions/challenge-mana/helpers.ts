@@ -39,18 +39,19 @@ export async function getChallSummary(
     };
 
     // Récupérer les challenges
-    const { challenges: challDetail, error: challError } = await supabase
-      .from("Challenge")
-      .select("*")
-      .eq("isGlobal", true);
+    const query= await supabase
+      .from('Challenge')
+      .select("*");
 
-    if (challError) {
+      const { data, error: challError } = await query;
+
+      if (challError) {
       throw new Error(`Erreur lors du fetch des défis: ${challError.message}`);
     }
 
     // Stock data
-    const challs: ChallDetail[] = (challDetail || []).map((chall: any) => ({
-      idChall: chall.idChall,
+    const challs: ChallDetail[] = (data || []).map((chall: any) => ({
+      idChallenge: chall.idChallenge,
       name: chall.name,
       isGlobal: chall.isGlobal,
       description: chall.description,
@@ -59,6 +60,7 @@ export async function getChallSummary(
       objective: chall.objective,
       isDraft: chall.isDraft,
       isActive: chall.isActive,
+        goal: chall.goal
     }));
 
     const challSummary: ChallSummary = {
@@ -88,33 +90,25 @@ export async function getChallSummary(
 
 export async function addChall(
   supabase: SupabaseClient,
-  newChall: {
-      idChallenge: number
-      name: string;
-      isGlobal: boolean
-      description: string;
-      startDateTime: string;
-      endDateTime: string;
-      objective: string;
-      isDraft: boolean;
-      isActive: boolean;
-  }
+  body
 ): Promise<CompleteResponse> {
   try {
       // Insérer le nouveau challenge
-      const { data: challData, error: insertError } = await supabase
+      console.log(body)
+      const { data, error: insertError } = await supabase
           .from("Challenge")
-          .insert({
-              idChallenge: newChall.idChallenge,
-              name: newChall.name,
-              description: newChall.description,
-              objective: newChall.objective,
-              isActive: newChall.isActive ?? false,
-              isDraft: newChall.isDraft ?? true,
-              isGlobal: newChall.isGlobal ?? true,
-              startDateTime: newChall.startDateTime ?? null,
-              endDateTime: newChall.endDateTime ?? null,
-          })
+          .insert([
+              //{idChallenge: body.idChallenge },
+              {name: body.name,
+              description: body.description,
+              objective: body.objective,
+              isActive: body.isActive ?? false,
+              isDraft: body.isDraft ?? true,
+              isGlobal: body.isGlobal ?? true,
+              startDateTime: body.startDateTime ?? null,
+              endDateTime: body.endDateTime ?? null,
+              goal: body.goal}
+                  ])
           .select()
           .single();
 
@@ -123,7 +117,7 @@ export async function addChall(
       }
 
       return {
-          data: newChall,
+          data: data,
           error: null,
           success: true,
       };

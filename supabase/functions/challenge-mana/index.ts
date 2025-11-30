@@ -32,10 +32,10 @@ Deno.serve(async (req) => {
     const searchParam = url.searchParams.get('id') || null;
     let body;
     if(req.method === 'POST'){
-        body =  req.json() || null;
-        console.log("Le body de la requête si dispo: " + body);
-    }
+        body =  await req.json() || null;
 
+    }
+    console.log("Le body de la requête si dispo: " + body);
     let data;
     try {
         switch (method) {
@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
                     { headers: { ...corsHeaders, "Content-Type": "application/json" } },
                 );
             case "POST":
+                console.log(body)
                 data = await addChall(supaClient, body);
                     return new Response(
                         JSON.stringify(data),
