@@ -1,7 +1,7 @@
 import {createClient} from "@supabase/supabase-js";
 
 import {env} from './envConfig'
-import {addChall, getChallSummary} from "./supabase/functions/challenge-mana/helpers";
+import {addChall, deleteChallenge, getChallSummary, updateChallenge} from "./supabase/functions/challenge-mana/helpers";
 async function example1() {
     const supabaseurl = env.supabaseUrl;
     const supabasekey = env.supabaseAnonKey;
@@ -90,17 +90,32 @@ async function example2() {
     }
 }
 
-example2()
+//example2()
 
 async function example3(){
     const supabaseurl = env.supabaseUrl;
     const supabasekey = env.supabaseAnonKey;
 
     const supabase = createClient(supabaseurl, supabasekey);
-
-    const result = await getChallSummary(supabase);
+    const body = {
+        goal: "un goal de changé"
+    }
+    const result = await updateChallenge(supabase, 13, body);
 
     console.log(result);
 }
 
-//xample3()
+//example3()
+
+async function example4(){
+    const supabaseurl = env.supabaseUrl;
+    const supabasekey = env.supabaseAnonKey;
+
+    const supabase = createClient(supabaseurl, supabasekey);
+
+    const result = await deleteChallenge(supabase, 12);
+
+    console.log(result);
+}
+
+//example4()

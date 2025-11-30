@@ -141,18 +141,19 @@ export async function updateChallenge(
   idChall: number,
   updateData: {
       name?: string;
-      isGlobal: boolean
+      isGlobal?: boolean
       description?: string;
-      startDateTime: string;
-      endDateTime: string;
-      objective: string;
-      isDraft: boolean;
-      isActive: boolean;
+      startDateTime?: string;
+      endDateTime?: string;
+      objective?: number;
+      isDraft?: boolean;
+      isActive?: boolean;
+      goal?: string;
   }
 ): Promise<CompleteResponse> {
   try {
       // Mettre à jour le challenge
-      const { data: updatedChall, error: updateError } = await supabase
+      const query  = await supabase
           .from("Challenge")
           .update({
               ...(updateData.name !== undefined && { name: updateData.name }),
@@ -163,10 +164,12 @@ export async function updateChallenge(
               ...(updateData.objective !== undefined && { objective: updateData.objective }),
               ...(updateData.isDraft !== undefined && { isDraft: updateData.isDraft }),
               ...(updateData.isActive !== undefined && { isActive: updateData.isActive }),
+              ...(updateData.goal !== undefined && { goal: updateData.goal }),
           })
-          .eq("idChall", idChall)
+          .eq("idChallenge", idChall)
           .select()
           .single();
+      const { data: updatedChall, error: updateError } = await query;
 
       if (updateError) {
           throw new Error(`Erreur lors de la mise à jour: ${updateError.message}`);
@@ -199,11 +202,12 @@ export async function deleteChallenge(
 ): Promise<CompleteResponse> {
   try {
       // Supprimer le challenge
-      const { error: deleteError } = await supabase
+       const query = await supabase
           .from("Challenge")
           .delete()
-          .eq("idChall", idChall);
+          .eq("idChallenge", idChall);
 
+      const { data, error: deleteError } = await query;
       if (deleteError) {
           throw new Error(`Erreur lors de la suppression: ${deleteError.message}`);
       }
