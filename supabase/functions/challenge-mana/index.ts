@@ -7,6 +7,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import {createClient} from "@supabase/supabase-js";
 import {corsHeaders} from "../../_shared/cors.ts";
 import {c} from "npm:tar@7.5.2";
+import {addChall, deleteChallenge, getChallSummary, updateChallenge} from "./helpers.ts";
 
 console.log("Hello from challenge-mana!")
 
@@ -31,32 +32,34 @@ Deno.serve(async (req) => {
     console.log(command);
     const id = command;
     console.log(id);
+    const body = req.body
     let data;
     try {
         switch (method) {
             case "GET":
-                if (id !== "group-mana") {
-                    //data = await (supaClient, id);
+                data = await getChallSummary(supaClient);
+                return new Response(
+                    JSON.stringify(data),
+                    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                );
+            case "POST":
+                data = await addChall(supaClient, body);
                     return new Response(
                         JSON.stringify(data),
-                        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-                    );
-                } else {
-                    // data = await getCompleteUsersSummary(supaClient);
-                    console.log(data);
-                    return new Response(
-                        JSON.stringify(data),
-                        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-                    );
-                }
+                        {headers: {...corsHeaders, "Content-Type": "application/json"}},
+                    )
             case "PUT":
-                // data = await softDelete(supaClient, id);
+                data = await updateChallenge(supaClient, id);
                 return new Response (
                     JSON.stringify(data),
                     {headers: {...corsHeaders, "Content-Type": "application/json"}},
                 );
             case "DELETE":
-            // data = await permanentlyDelete(supaClient, id);
+                 data = await deleteChallenge(supaClient, id);
+                 return new Response(
+                    JSON.stringify(data),
+                     {headers: {...corsHeaders, "Content-Type": "application/json"}},
+                 );
             default:
                 return new Response(
                     JSON.stringify({ error: "Method not allowed" }),
