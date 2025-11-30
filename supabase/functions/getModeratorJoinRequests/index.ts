@@ -20,7 +20,7 @@ type JoinRequestRow = {
         name: string;
         description: string | null;
         logo: string | null;
-        isOpen: boolean;
+        isPublic: boolean;
         isCertified: boolean;
     };
     User: {
@@ -116,7 +116,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           name,
           description,
           logo,
-          isOpen,
+          isPublic,
           isCertified
         ),
         User:User (

@@ -79,7 +79,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         // 2️⃣ Récupérer le groupe
         const { data: group, error: groupError } = await supabase
             .from("Group")
-            .select("idGroup, isOpen")
+            .select("idGroup, isPublic")
             .eq("idGroup", idGroup)
             .maybeSingle();
 
@@ -121,7 +121,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
             );
         }
 
-        if (group.isOpen) {
+        if (group.isPublic) {
             // 4️⃣ Groupe public → ajout direct
             const { error: insertError } = await supabase.from("GroupMember").insert({
                 idGroup,
