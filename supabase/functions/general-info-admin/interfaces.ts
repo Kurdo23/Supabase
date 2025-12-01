@@ -3,7 +3,8 @@ interface DashboardStats {
         total: number;
         activeToday: number;
         newThisMonth: number;
-        active: number;
+        activeThisMonth: number;
+        active: number
         inactive: number;
         newUsers: number;
     };

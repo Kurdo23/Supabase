@@ -18,7 +18,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
  * @param supabase - Client Supabase initialisé
  * @returns Promise avec toutes les statistiques
  */
-export async function getDashboardStats(
+export async function getDashboardSummary(
     supabase: SupabaseClient
 ): Promise<DashboardResponse> {
     try {
@@ -89,6 +89,9 @@ export async function getDashboardStats(
             .select('*', {count: 'exact', head: true})
             .is('isSoftDelete', true);
 
+        // Nombre d'utilisateur actif en tout
+        const active = (totalUsers || 0) - (inactiveUsers || 0);
+
         // ========================================
         // UTILISATEURS PAR MOIS
         // ========================================
@@ -153,7 +156,8 @@ export async function getDashboardStats(
                 total: totalUsers || 0,
                 activeToday: activeToday || 0,
                 newThisMonth: newThisMonth || 0,
-                active: activeUsers || 0,
+                activeThisMonth: activeUsers,
+                active: active,
                 inactive: inactiveUsers,
                 newUsers: newThisMonth || 0, // Alias pour clarté
             },

@@ -23,11 +23,70 @@ async function example2(){
     const supabaseurl = env.supabaseUrl;
     const supabaseAnonKye = env.supabaseAnonKey;
 
-    const response = await fetch(`${supabaseurl}/functions/v1/challenge-mana`, {
+    /*const response = await fetch(`${supabaseurl}/functions/v1/general-info-admin`, {
         method: 'GET',
         headers: {
             Authorization: `Bearer ${supabaseAnonKye}`,
             'Content-Type': 'application/json',
         },
     })
+
+    const data = await response.json();
+    console.log(data);*/
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+    for(let i = 0; i < 10; i++){
+        const startTime = Date.now();
+        const { data, error } = await supabase.functions.invoke('general-info-admin', {
+            method: "GET"
+        })
+        const endTime = Date.now();
+        const totalTime = endTime-startTime;
+
+       // console.log(data);
+       // console.log('---');
+        if (error) {
+            console.error(`Request ${i + 1} failed:`, error, `(${totalTime}ms)`);
+        } else {
+            console.log(`Request ${i + 1}:`, data, `(${totalTime}ms)`);
+        }
+        console.log('==========')
+
+    }
+
+
+
 }
+
+//example2()
+
+async function concurrentCalls(){
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+    const supabaseurl = env.supabaseUrl;
+    const supabaseAnonKye = env.supabaseAnonKey;
+    const concurrentUsers = 100;
+    const staggerDelayMs = 100; // 100ms between each user starting
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const requests = Array.from({ length: concurrentUsers }, async (_, i) => {
+        await sleep(i * staggerDelayMs); // Stagger the start times
+
+        const startTime = Date.now();
+        const response= await fetch(`${supabaseurl}/functions/v1/general-info-admin`, {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${supabaseAnonKye}`,
+                'Content-Type': 'application/json',
+            },
+        })
+        const data = await response.json();
+        const endTime = Date.now();
+
+        return { userId: i + 1, data, totalTime: endTime - startTime };
+    });
+
+    const results = await Promise.all(requests);
+    console.log(results);
+}
+
+concurrentCalls();
