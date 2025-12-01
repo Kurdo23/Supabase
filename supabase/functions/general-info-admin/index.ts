@@ -5,6 +5,7 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import {createClient} from "@supabase/supabase-js";
+import {getDashboardSummary} from "./helpers.ts";
 
 console.log("Hello from general-info-mana!")
 
@@ -26,58 +27,37 @@ Deno.serve(async (req) => {
         return new Response('ok', { headers: corsHeaders })
     }
 
-
-    const url = new URL(req.url);
+    console.log(req);
     const method = req.method;
-    const command = url.pathname.split("/").pop();
-    console.log(command);
-    const id = command;
-    console.log(id);
     let data;
+
     try {
         switch (method) {
             case "GET":
-                if (id !== "group-mana") {
-                    //data = await (supaClient, id);
-                    return new Response(
-                        JSON.stringify(data),
-                        { headers: { "Content-Type": "application/json" } },
-                    );
-                } else {
-                    // data = await getCompleteUsersSummary(supaClient);
-                    console.log(data);
-                    return new Response(
-                        JSON.stringify(data),
-                        { headers: { "Content-Type": "application/json" } },
-                    );
-                }
-            case "PUT":
-                // data = await softDelete(supaClient, id);
-                return new Response (
+                data = await getDashboardSummary(supaClient);
+                return new Response(
                     JSON.stringify(data),
                     {headers: {"Content-Type": "application/json"}},
                 );
-            case "DELETE":
-            // data = await permanentlyDelete(supaClient, id);
+
             default:
                 return new Response(
-                    JSON.stringify({ error: "Method not allowed" }),
+                    JSON.stringify({error: "Method not allowed"}),
                     {
-                        headers: { ...corsHeaders, "Content-Type": "application/json" },
+                        headers: {...corsHeaders, "Content-Type": "application/json"},
                         status: 405,
                     },
                 )
-        }
 
-    }
-    catch (err) {
+            }
+        }catch (err) {
         console.error("Error:", err);
 
         return new Response(
             JSON.stringify({ error: err.message }),
             {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
-                status: 400,
+                status: err.status || 500,
             },
         );
     }
