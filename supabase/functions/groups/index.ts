@@ -170,6 +170,7 @@ Deno.serve(async (req) => {
             const body = await req.json();
             return await createGroup(body);
         }
+
         // POST /groups/:id/join
         if (req.method === "POST" && rest.length === 2 && rest[1] === "join") {
             const idGroup = Number(rest[0]);
