@@ -4,6 +4,7 @@ import type {
     GroupWithRelations,
     CreateGroupBody,
     JoinGroupBody,
+    LeaveGroupBody,
 } from "./interface.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -34,7 +35,8 @@ async function listGroups(): Promise<Response> {
     const { data, error } = await supabase
         .from("Group")
         .select("idGroup, name, description, logo, isPublic, isCertified")
-        .order("name", { ascending: true });
+        .order("name", { ascending: true })
+        .eq("isSoftDelete", false);
 
     if (error) return jsonError("Erreur chargement groupes", 500);
     return jsonOk(data);
@@ -57,6 +59,7 @@ async function getGroupById(idGroup: number): Promise<Response> {
       )
     `)
         .eq("idGroup", idGroup)
+        .eq("isSoftDelete", false)
         .single();
 
     if (error || !data) return jsonError("Communauté introuvable", 404);
@@ -129,11 +132,14 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
 
     const { data: group, error: gError } = await supabase
         .from("Group")
-        .select("idGroup, isPublic")
+        .select("idGroup, isPublic, isSoftDelete")
         .eq("idGroup", idGroup)
         .maybeSingle();
 
-    if (gError || !group) return jsonError("Communauté introuvable", 404);
+    // si le groupe n'existe pas OU est soft-delete → on considère qu'il n'existe plus
+    if (gError || !group || group.isSoftDelete) {
+        return jsonError("Communauté introuvable", 404);
+    }
 
     if (group.isPublic) {
         const { error: insertError } = await supabase.from("GroupMember").insert({
@@ -146,6 +152,77 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
     }
 
     return jsonOk({ status: "pending" });
+}
+
+async function leaveGroup(idGroup: number, body: LeaveGroupBody): Promise<Response> {
+    const { userId } = body;
+
+    if (!userId) return jsonError("userId requis", 400);
+
+    // Tous les membres du groupe
+    const { data: members, error: membersError } = await supabase
+        .from("GroupMember")
+        .select("idUser, isModerator")
+        .eq("idGroup", idGroup);
+
+    if (membersError) return jsonError("Erreur chargement membres", 500);
+    if (!members || members.length === 0) {
+        // pas de membres -> rien à faire
+        return jsonOk({ status: "not_member" });
+    }
+
+    const current = members.find((m) => m.idUser === userId);
+
+    if (!current) {
+        return jsonError("Vous n'êtes pas membre de cette communauté", 400);
+    }
+
+    const isAdmin = current.isModerator === true;
+    const otherAdmins = members.filter(
+        (m) => m.idUser !== userId && m.isModerator === true,
+    );
+    const membersCount = members.length;
+
+    // Règle : dernier admin alors qu'il reste d'autres membres -> interdit
+    if (isAdmin && membersCount > 1 && otherAdmins.length === 0) {
+        return jsonError(
+            "Vous êtes le dernier administrateur. Nommez un autre admin avant de quitter la communauté.",
+            400,
+        );
+    }
+
+    // Si c'est le seul membre du groupe -> soft delete du groupe
+    if (membersCount === 1) {
+        const { error: gmDeleteError } = await supabase
+            .from("GroupMember")
+            .delete()
+            .eq("idGroup", idGroup)
+            .eq("idUser", userId);
+
+        if (gmDeleteError) return jsonError("Erreur lors de la sortie du groupe", 500);
+
+        const { error: softDeleteError } = await supabase
+            .from("Group")
+            .update({ isSoftDelete: true })
+            .eq("idGroup", idGroup);
+
+        if (softDeleteError) {
+            return jsonError("Sortie effectuée, mais erreur soft delete du groupe", 500);
+        }
+
+        return jsonOk({ status: "left_and_soft_deleted" });
+    }
+
+    // Cas classique : on enlève juste le membre
+    const { error: deleteError } = await supabase
+        .from("GroupMember")
+        .delete()
+        .eq("idGroup", idGroup)
+        .eq("idUser", userId);
+
+    if (deleteError) return jsonError("Erreur lors de la sortie du groupe", 500);
+
+    return jsonOk({ status: "left" });
 }
 
 Deno.serve(async (req) => {
@@ -178,6 +255,15 @@ Deno.serve(async (req) => {
             const body = await req.json();
             return await joinGroup(idGroup, body);
         }
+
+        // POST /groups/:id/leave
+        if (req.method === "POST" && rest.length === 2 && rest[1] === "leave") {
+            const idGroup = Number(rest[0]);
+            if (Number.isNaN(idGroup)) return jsonError("idGroup invalide", 400);
+            const body = await req.json();
+            return await leaveGroup(idGroup, body);
+        }
+
         return jsonError("Route non trouvée", 404);
     } catch (err) {
         console.error("groups edge function error:", err);

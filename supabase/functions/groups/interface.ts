@@ -36,3 +36,7 @@ type CreateGroupBody = {
     userId: string;
 };
 type JoinGroupBody = { userId: string };
+
+type LeaveGroupBody = {
+    userId: string;
+};
