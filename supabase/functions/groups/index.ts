@@ -156,7 +156,7 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
 }
 
 async function leaveGroup(idGroup: number, body: LeaveGroupBody): Promise<Response> {
-    const { userId } = body;
+    const { userId, newModeratorId } = body;
 
     if (!userId) return jsonError("userId requis", 400);
 
@@ -184,14 +184,6 @@ async function leaveGroup(idGroup: number, body: LeaveGroupBody): Promise<Respon
     );
     const membersCount = members.length;
 
-    // Règle : dernier admin alors qu'il reste d'autres membres -> interdit
-    if (isAdmin && membersCount > 1 && otherAdmins.length === 0) {
-        return jsonError(
-            "Vous êtes le dernier administrateur. Nommez un autre admin avant de quitter la communauté.",
-            400,
-        );
-    }
-
     // Si c'est le seul membre du groupe -> soft delete du groupe
     if (membersCount === 1) {
         const { error: gmDeleteError } = await supabase
@@ -212,6 +204,50 @@ async function leaveGroup(idGroup: number, body: LeaveGroupBody): Promise<Respon
         }
 
         return jsonOk({ status: "left_and_soft_deleted" });
+    }
+
+    // Règle : dernier admin alors qu'il reste d'autres membres
+    if (isAdmin && membersCount > 1 && otherAdmins.length === 0) {
+        // Si un nouveau modérateur est spécifié, on le promeut
+        if (newModeratorId) {
+            const newModerator = members.find((m) => m.idUser === newModeratorId);
+
+            if (!newModerator) {
+                return jsonError("Le membre spécifié n'existe pas dans ce groupe", 400);
+            }
+
+            if (newModerator.isModerator) {
+                return jsonError("Ce membre est déjà modérateur", 400);
+            }
+
+            // Promouvoir le nouveau modérateur
+            const { error: promoteError } = await supabase
+                .from("GroupMember")
+                .update({ isModerator: true })
+                .eq("idGroup", idGroup)
+                .eq("idUser", newModeratorId);
+
+            if (promoteError) {
+                return jsonError("Erreur lors de la promotion du nouveau modérateur", 500);
+            }
+
+            // On peut maintenant quitter le groupe
+            const { error: deleteError } = await supabase
+                .from("GroupMember")
+                .delete()
+                .eq("idGroup", idGroup)
+                .eq("idUser", userId);
+
+            if (deleteError) return jsonError("Erreur lors de la sortie du groupe", 500);
+
+            return jsonOk({ status: "left_and_transferred" });
+        }
+
+        // Sinon, on refuse
+        return jsonError(
+            "Vous êtes le dernier administrateur. Nommez un autre admin avant de quitter la communauté.",
+            400,
+        );
     }
 
     // Cas classique : on enlève juste le membre
