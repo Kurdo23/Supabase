@@ -5,6 +5,7 @@ type Group = {
     logo: string | null;
     isPublic: boolean;
     isCertified: boolean;
+    isVisible: boolean;
     isSoftDelete:boolean;
     timestamp:string;
 };
@@ -33,6 +34,7 @@ type CreateGroupBody = {
     logo?: string;
     isPublic: boolean;
     isCertified: boolean;
+    isVisible?: boolean;
     userId: string;
 };
 type JoinGroupBody = { userId: string };

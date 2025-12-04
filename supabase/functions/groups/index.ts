@@ -34,7 +34,7 @@ function jsonError(message: string, status = 400): Response {
 async function listGroups(): Promise<Response> {
     const { data, error } = await supabase
         .from("Group")
-        .select("idGroup, name, description, logo, isPublic, isCertified")
+        .select("idGroup, name, description, logo, isPublic, isCertified, isVisible")
         .order("name", { ascending: true })
         .eq("isSoftDelete", false);
 
@@ -96,7 +96,7 @@ async function getGroupById(idGroup: number): Promise<Response> {
 }
 
 async function createGroup(body: CreateGroupBody): Promise<Response> {
-    const { name, description, logo, isPublic, isCertified, userId } = body;
+    const { name, description, logo, isPublic, isCertified, isVisible, userId } = body;
     if (!name || !userId) return jsonError("Champs requis manquants", 400);
 
     const { data, error } = await supabase
@@ -107,6 +107,7 @@ async function createGroup(body: CreateGroupBody): Promise<Response> {
             logo: logo ?? null,
             isPublic: isPublic,
             isCertified: isCertified,
+            isVisible: isVisible ?? true,
             isSoftDelete : false,
             created_at: new Date().toISOString(),
         })
