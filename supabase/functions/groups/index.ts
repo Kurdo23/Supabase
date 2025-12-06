@@ -167,7 +167,7 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
     // Pour les groupes privés, créer une demande d'adhésion
     // Vérifier si une demande existe déjà
     const { data: existingRequest } = await supabase
-        .from("GroupRequest")
+        .from("Groupjoinrequest")
         .select("status")
         .eq("idGroup", idGroup)
         .eq("idUser", userId)
@@ -177,7 +177,7 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
         if (existingRequest.status === "pending") {
             return jsonError("Vous avez déjà une demande en attente pour cette communauté", 400);
         }
-        if (existingRequest.status === "approved") {
+        if (existingRequest.status === "accepted") {
             return jsonError("Votre demande a déjà été approuvée", 400);
         }
         // Si rejected, on peut créer une nouvelle demande (on écrase l'ancienne)
@@ -185,14 +185,12 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
 
     // Créer ou mettre à jour la demande
     const { error: requestError } = await supabase
-        .from("GroupRequest")
+        .from("Groupjoinrequest")
         .upsert({
             idGroup,
             idUser: userId,
             status: "pending",
-            requestedAt: new Date().toISOString(),
-            processedAt: null,
-            processedBy: null,
+            requestedat: new Date().toISOString(),
         }, {
             onConflict: "idGroup,idUser"
         });

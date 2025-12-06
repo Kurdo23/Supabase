@@ -54,15 +54,15 @@ async function checkIsModerator(idGroup: number, moderatorId: string): Promise<b
  */
 async function getPendingRequests(idGroup: number): Promise<Response> {
     const { data, error } = await supabase
-        .from("GroupRequest")
+        .from("Groupjoinrequest")
         .select(`
             idUser,
-            requestedAt,
+            requestedat,
             User (name, lastname, username)
         `)
         .eq("idGroup", idGroup)
         .eq("status", "pending")
-        .order("requestedAt", { ascending: true });
+        .order("requestedat", { ascending: true });
 
     if (error) {
         console.error("Error fetching pending requests:", error);
@@ -75,7 +75,7 @@ async function getPendingRequests(idGroup: number): Promise<Response> {
         name: req.User?.name ?? null,
         lastname: req.User?.lastname ?? null,
         username: req.User?.username ?? null,
-        requestedAt: req.requestedAt,
+        requestedAt: req.requestedat,
     }));
 
     return jsonOk(requests);
@@ -100,7 +100,7 @@ async function approveMember(idGroup: number, body: ApproveMemberBody): Promise<
 
     // Vérifier que la demande existe et est en attente
     const { data: request, error: requestError } = await supabase
-        .from("GroupRequest")
+        .from("Groupjoinrequest")
         .select("status")
         .eq("idGroup", idGroup)
         .eq("idUser", userId)
@@ -140,13 +140,11 @@ async function approveMember(idGroup: number, body: ApproveMemberBody): Promise<
         return jsonError("Erreur lors de l'ajout du membre", 500);
     }
 
-    // 2. Mettre à jour la demande (marquer comme approuvée)
+    // 2. Mettre à jour la demande (marquer comme acceptée)
     const { error: updateError } = await supabase
-        .from("GroupRequest")
+        .from("Groupjoinrequest")
         .update({
-            status: "approved",
-            processedAt: new Date().toISOString(),
-            processedBy: moderatorId,
+            status: "accepted",
         })
         .eq("idGroup", idGroup)
         .eq("idUser", userId);
@@ -177,7 +175,7 @@ async function rejectMember(idGroup: number, body: RejectMemberBody): Promise<Re
 
     // Vérifier que la demande existe et est en attente
     const { data: request, error: requestError } = await supabase
-        .from("GroupRequest")
+        .from("Groupjoinrequest")
         .select("status")
         .eq("idGroup", idGroup)
         .eq("idUser", userId)
@@ -193,11 +191,9 @@ async function rejectMember(idGroup: number, body: RejectMemberBody): Promise<Re
 
     // Mettre à jour la demande (marquer comme rejetée)
     const { error: updateError } = await supabase
-        .from("GroupRequest")
+        .from("Groupjoinrequest")
         .update({
             status: "rejected",
-            processedAt: new Date().toISOString(),
-            processedBy: moderatorId,
         })
         .eq("idGroup", idGroup)
         .eq("idUser", userId);
