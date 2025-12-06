@@ -142,6 +142,18 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
         return jsonError("Communauté introuvable", 404);
     }
 
+    // Vérifier si l'utilisateur est déjà membre
+    const { data: existingMember } = await supabase
+        .from("GroupMember")
+        .select("idUser")
+        .eq("idGroup", idGroup)
+        .eq("idUser", userId)
+        .maybeSingle();
+
+    if (existingMember) {
+        return jsonError("Vous êtes déjà membre de cette communauté", 400);
+    }
+
     if (group.isPublic) {
         const { error: insertError } = await supabase.from("GroupMember").insert({
             idGroup,
@@ -150,6 +162,44 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
         });
         if (insertError) return jsonError("Erreur adhésion", 500);
         return jsonOk({ status: "member" });
+    }
+
+    // Pour les groupes privés, créer une demande d'adhésion
+    // Vérifier si une demande existe déjà
+    const { data: existingRequest } = await supabase
+        .from("GroupRequest")
+        .select("status")
+        .eq("idGroup", idGroup)
+        .eq("idUser", userId)
+        .maybeSingle();
+
+    if (existingRequest) {
+        if (existingRequest.status === "pending") {
+            return jsonError("Vous avez déjà une demande en attente pour cette communauté", 400);
+        }
+        if (existingRequest.status === "approved") {
+            return jsonError("Votre demande a déjà été approuvée", 400);
+        }
+        // Si rejected, on peut créer une nouvelle demande (on écrase l'ancienne)
+    }
+
+    // Créer ou mettre à jour la demande
+    const { error: requestError } = await supabase
+        .from("GroupRequest")
+        .upsert({
+            idGroup,
+            idUser: userId,
+            status: "pending",
+            requestedAt: new Date().toISOString(),
+            processedAt: null,
+            processedBy: null,
+        }, {
+            onConflict: "idGroup,idUser"
+        });
+
+    if (requestError) {
+        console.error("Error creating request:", requestError);
+        return jsonError("Erreur lors de la création de la demande", 500);
     }
 
     return jsonOk({ status: "pending" });
