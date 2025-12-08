@@ -35,7 +35,7 @@ async function listGroups(): Promise<Response> {
     const { data, error } = await supabase
         .from("Group")
         .select("idGroup, name, description, logo, isPublic, isCertified, isVisible")
-        .order("name", { ascending: true })
+        .order("name", { ascending: false })
         .eq("isSoftDelete", false);
 
     if (error) return jsonError("Erreur chargement groupes", 500);
