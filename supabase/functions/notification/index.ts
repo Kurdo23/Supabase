@@ -10,6 +10,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Content-Type": "application/json"
 };
 
@@ -99,7 +100,7 @@ async function markAsRead(notificationId: string, userId: string): Promise<Respo
 async function acceptInvitation(idGroup: number, userId: string): Promise<Response> {
     // 1. Vérifier qu'une invitation existe pour cet utilisateur
     const { data: invitation, error: invitError } = await supabase
-        .from("Groupjoinrequest")
+        .from("GroupJoinRequest")
         .select("*")
         .eq("idGroup", idGroup)
         .eq("idUser", userId)
@@ -139,7 +140,7 @@ async function acceptInvitation(idGroup: number, userId: string): Promise<Respon
 
     // 4. Mettre à jour le statut de l'invitation
     await supabase
-        .from("Groupjoinrequest")
+        .from("GroupJoinRequest")
         .update({ status: "accepted" })
         .eq("idGroup", idGroup)
         .eq("idUser", userId);
@@ -162,7 +163,7 @@ async function acceptInvitation(idGroup: number, userId: string): Promise<Respon
 async function declineInvitation(idGroup: number, userId: string): Promise<Response> {
     // 1. Vérifier qu'une invitation existe
     const { data: invitation, error: invitError } = await supabase
-        .from("Groupjoinrequest")
+        .from("GroupJoinRequest")
         .select("*")
         .eq("idGroup", idGroup)
         .eq("idUser", userId)
@@ -176,8 +177,8 @@ async function declineInvitation(idGroup: number, userId: string): Promise<Respo
 
     // 2. Mettre à jour le statut de l'invitation
     const { error: updateError } = await supabase
-        .from("Groupjoinrequest")
-        .update({ status: "declined" })
+        .from("GroupJoinRequest")
+        .update({ status: "rejected" })
         .eq("idGroup", idGroup)
         .eq("idUser", userId);
 
@@ -240,23 +241,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
             path = "/" + segments.slice(1).join("/");
         }
 
+        console.log(`[${req.method}] Original path: ${url.pathname}, Normalized: ${path}`);
+
         // Router les requêtes
         if (req.method === "GET" && (path === "/notifications" || path === "" || path === "/")) {
             return await getNotifications(userId);
         }
 
-        if (req.method === "PATCH" && path.match(/^\/[\w-]+\/read$/)) {
-            const notificationId = path.split("/")[1];
+        // PATCH /notification/:id/read
+        const readMatch = path.match(/^\/([\w-]+)\/read$/);
+        if (req.method === "PATCH" && readMatch) {
+            const notificationId = readMatch[1];
             return await markAsRead(notificationId, userId);
         }
 
-        if (req.method === "POST" && path.match(/^\/invitations\/\d+\/accept$/)) {
-            const idGroup = parseInt(path.split("/")[2]);
+        // POST /notification/invitations/:idGroup/accept
+        const acceptMatch = path.match(/^\/invitations\/(\d+)\/accept$/);
+        if (req.method === "POST" && acceptMatch) {
+            const idGroup = parseInt(acceptMatch[1]);
             return await acceptInvitation(idGroup, userId);
         }
 
-        if (req.method === "POST" && path.match(/^\/invitations\/\d+\/decline$/)) {
-            const idGroup = parseInt(path.split("/")[2]);
+        // POST /notification/invitations/:idGroup/decline
+        const declineMatch = path.match(/^\/invitations\/(\d+)\/decline$/);
+        if (req.method === "POST" && declineMatch) {
+            const idGroup = parseInt(declineMatch[1]);
             return await declineInvitation(idGroup, userId);
         }
 
