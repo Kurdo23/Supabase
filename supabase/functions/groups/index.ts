@@ -34,8 +34,8 @@ function jsonError(message: string, status = 400): Response {
 async function listGroups(): Promise<Response> {
     const { data, error } = await supabase
         .from("Group")
-        .select("idGroup, name, description, logo, isPublic, isCertified")
-        .order("name", { ascending: true })
+        .select("idGroup, name, description, logo, isPublic, isCertified, isVisible")
+        .order("name", { ascending: false })
         .eq("isSoftDelete", false);
 
     if (error) return jsonError("Erreur chargement groupes", 500);
@@ -96,7 +96,7 @@ async function getGroupById(idGroup: number): Promise<Response> {
 }
 
 async function createGroup(body: CreateGroupBody): Promise<Response> {
-    const { name, description, logo, isPublic, isCertified, userId } = body;
+    const { name, description, logo, isPublic, isCertified, isVisible, userId } = body;
     if (!name || !userId) return jsonError("Champs requis manquants", 400);
 
     const { data, error } = await supabase
@@ -107,6 +107,7 @@ async function createGroup(body: CreateGroupBody): Promise<Response> {
             logo: logo ?? null,
             isPublic: isPublic,
             isCertified: isCertified,
+            isVisible: isVisible ?? true,
             isSoftDelete : false,
             created_at: new Date().toISOString(),
         })
@@ -141,6 +142,18 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
         return jsonError("Communauté introuvable", 404);
     }
 
+    // Vérifier si l'utilisateur est déjà membre
+    const { data: existingMember } = await supabase
+        .from("GroupMember")
+        .select("idUser")
+        .eq("idGroup", idGroup)
+        .eq("idUser", userId)
+        .maybeSingle();
+
+    if (existingMember) {
+        return jsonError("Vous êtes déjà membre de cette communauté", 400);
+    }
+
     if (group.isPublic) {
         const { error: insertError } = await supabase.from("GroupMember").insert({
             idGroup,
@@ -151,11 +164,47 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
         return jsonOk({ status: "member" });
     }
 
+    // Pour les groupes privés, créer une demande d'adhésion
+    // Vérifier si une demande existe déjà
+    const { data: existingRequest } = await supabase
+        .from("Groupjoinrequest")
+        .select("status")
+        .eq("idGroup", idGroup)
+        .eq("idUser", userId)
+        .maybeSingle();
+
+    if (existingRequest) {
+        if (existingRequest.status === "pending") {
+            return jsonError("Vous avez déjà une demande en attente pour cette communauté", 400);
+        }
+        if (existingRequest.status === "accepted") {
+            return jsonError("Votre demande a déjà été approuvée", 400);
+        }
+        // Si rejected, on peut créer une nouvelle demande (on écrase l'ancienne)
+    }
+
+    // Créer ou mettre à jour la demande
+    const { error: requestError } = await supabase
+        .from("Groupjoinrequest")
+        .upsert({
+            idGroup,
+            idUser: userId,
+            status: "pending",
+            requestedat: new Date().toISOString(),
+        }, {
+            onConflict: "idGroup,idUser"
+        });
+
+    if (requestError) {
+        console.error("Error creating request:", requestError);
+        return jsonError("Erreur lors de la création de la demande", 500);
+    }
+
     return jsonOk({ status: "pending" });
 }
 
 async function leaveGroup(idGroup: number, body: LeaveGroupBody): Promise<Response> {
-    const { userId } = body;
+    const { userId, newModeratorId } = body;
 
     if (!userId) return jsonError("userId requis", 400);
 
@@ -183,14 +232,6 @@ async function leaveGroup(idGroup: number, body: LeaveGroupBody): Promise<Respon
     );
     const membersCount = members.length;
 
-    // Règle : dernier admin alors qu'il reste d'autres membres -> interdit
-    if (isAdmin && membersCount > 1 && otherAdmins.length === 0) {
-        return jsonError(
-            "Vous êtes le dernier administrateur. Nommez un autre admin avant de quitter la communauté.",
-            400,
-        );
-    }
-
     // Si c'est le seul membre du groupe -> soft delete du groupe
     if (membersCount === 1) {
         const { error: gmDeleteError } = await supabase
@@ -211,6 +252,50 @@ async function leaveGroup(idGroup: number, body: LeaveGroupBody): Promise<Respon
         }
 
         return jsonOk({ status: "left_and_soft_deleted" });
+    }
+
+    // Règle : dernier admin alors qu'il reste d'autres membres
+    if (isAdmin && membersCount > 1 && otherAdmins.length === 0) {
+        // Si un nouveau modérateur est spécifié, on le promeut
+        if (newModeratorId) {
+            const newModerator = members.find((m) => m.idUser === newModeratorId);
+
+            if (!newModerator) {
+                return jsonError("Le membre spécifié n'existe pas dans ce groupe", 400);
+            }
+
+            if (newModerator.isModerator) {
+                return jsonError("Ce membre est déjà modérateur", 400);
+            }
+
+            // Promouvoir le nouveau modérateur
+            const { error: promoteError } = await supabase
+                .from("GroupMember")
+                .update({ isModerator: true })
+                .eq("idGroup", idGroup)
+                .eq("idUser", newModeratorId);
+
+            if (promoteError) {
+                return jsonError("Erreur lors de la promotion du nouveau modérateur", 500);
+            }
+
+            // On peut maintenant quitter le groupe
+            const { error: deleteError } = await supabase
+                .from("GroupMember")
+                .delete()
+                .eq("idGroup", idGroup)
+                .eq("idUser", userId);
+
+            if (deleteError) return jsonError("Erreur lors de la sortie du groupe", 500);
+
+            return jsonOk({ status: "left_and_transferred" });
+        }
+
+        // Sinon, on refuse
+        return jsonError(
+            "Vous êtes le dernier administrateur. Nommez un autre admin avant de quitter la communauté.",
+            400,
+        );
     }
 
     // Cas classique : on enlève juste le membre

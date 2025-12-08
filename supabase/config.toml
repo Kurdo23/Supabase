@@ -444,6 +444,28 @@ entrypoint = "./functions/groups/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/groups/*.html" ]
 
+[functions.moderation]
+enabled = true
+verify_jwt = true
+import_map = "./functions/moderation/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/moderation/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/moderation/*.html" ]
+
+[functions.notification]
+enabled = true
+verify_jwt = true
+import_map = "./functions/notification/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/notification/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/notification/*.html" ]
+
 [functions.getCompanyRanking]
 enabled = true
 verify_jwt = true

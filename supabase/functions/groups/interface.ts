@@ -5,6 +5,7 @@ type Group = {
     logo: string | null;
     isPublic: boolean;
     isCertified: boolean;
+    isVisible: boolean;
     isSoftDelete:boolean;
     timestamp:string;
 };
@@ -33,10 +34,12 @@ type CreateGroupBody = {
     logo?: string;
     isPublic: boolean;
     isCertified: boolean;
+    isVisible?: boolean;
     userId: string;
 };
 type JoinGroupBody = { userId: string };
 
 type LeaveGroupBody = {
     userId: string;
+    newModeratorId?: string; // Optionnel : promouvoir ce membre en modérateur avant de partir
 };
