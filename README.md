@@ -1,3 +1,4 @@
+#todo faut remplir ce document hein les loulous
 - Si vous vous êtes pas connecté alors 
 `supabase login` 
 enter le mdp affiché dans le navigateur
