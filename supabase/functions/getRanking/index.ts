@@ -16,14 +16,20 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const { data: users, error: userError } = await supabase
+        // Récupérer les paramètres de pagination et de tri
+        const { offset = 0, limit = 20, sortBy = "co2" } = await req.json();
+
+        // Récupérer TOUS les utilisateurs pour pouvoir les trier correctement
+        const { data: allUsers, error: userError } = await supabase
             .from("User")
             .select("idUser, username, xp");
+
         if (userError) throw userError;
 
         const userRanks: any[] = [];
 
-        for (const u of users ?? []) {
+        // Calculer les données pour tous les utilisateurs
+        for (const u of allUsers ?? []) {
             if (!u.idUser) continue;
 
             const { data: questionnaires, error: qError } = await supabase
@@ -59,7 +65,18 @@ Deno.serve(async (req) => {
             });
         }
 
-        return new Response(JSON.stringify(userRanks), {
+        // Trier selon le critère demandé
+        if (sortBy === "co2") {
+            userRanks.sort((a, b) => (a.monthly_avg ?? Infinity) - (b.monthly_avg ?? Infinity));
+        } else if (sortBy === "effort") {
+            userRanks.sort((a, b) => (b.effort ?? 0) - (a.effort ?? 0));
+        }
+
+        // Appliquer la pagination après le tri
+        const paginatedUsers = userRanks.slice(offset, offset + limit);
+        const hasMore = offset + limit < userRanks.length;
+
+        return new Response(JSON.stringify({ users: paginatedUsers, hasMore }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     } catch (err) {

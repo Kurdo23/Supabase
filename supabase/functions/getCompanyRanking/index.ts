@@ -16,6 +16,10 @@ Deno.serve(async (req) => {
     }
 
     try {
+        // Récupérer les paramètres de pagination
+        const { offset = 0, limit = 20 } = await req.json();
+
+        // Récupérer TOUS les groupes certifiés
         const { data: groups, error } = await supabase
             .from("Group")
             .select("idGroup, name, isCertified")
@@ -23,13 +27,14 @@ Deno.serve(async (req) => {
 
         if (error) throw error;
         if (!groups || groups.length === 0) {
-            return new Response(JSON.stringify([]), {
+            return new Response(JSON.stringify({ companies: [], hasMore: false }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
 
         const companies: { id: string; name: string; totalCarbon: number }[] = [];
 
+        // Calculer le total de carbone pour chaque entreprise
         for (const g of groups) {
             const { data: members, error: memberError } = await supabase
                 .from("GroupMember")
@@ -56,7 +61,14 @@ Deno.serve(async (req) => {
             });
         }
 
-        return new Response(JSON.stringify(companies), {
+        // Trier par totalCarbon (du plus bas au plus élevé)
+        companies.sort((a, b) => a.totalCarbon - b.totalCarbon);
+
+        // Appliquer la pagination après le tri
+        const paginatedCompanies = companies.slice(offset, offset + limit);
+        const hasMore = offset + limit < companies.length;
+
+        return new Response(JSON.stringify({ companies: paginatedCompanies, hasMore }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     } catch (err) {
