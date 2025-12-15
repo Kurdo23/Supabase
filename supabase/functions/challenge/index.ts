@@ -69,43 +69,62 @@ async function isModerator(idGroup: number, userId: string): Promise<boolean> {
 
 // GET /groups/:id/challenges - Lister les défis d'un groupe
 async function listGroupChallenges(idGroup: number, userId?: string): Promise<Response> {
-    // Récupérer tous les défis actifs du groupe
-    const { data: challenges, error } = await supabase
-        .from("Challenge")
-        .select("*")
-        .eq("idGroup", idGroup)
-        .eq("isActive", true)
-        .order("startDateTime", { ascending: false });
+    // Récupérer tous les défis actifs du groupe via GroupChallenge
+    const { data: groupChallenges, error } = await supabase
+        .from("GroupChallenge")
+        .select(`
+            Challenge (
+                idChallenge,
+                name,
+                description,
+                startDateTime,
+                endDateTime,
+                objective,
+                isActive,
+                createdAt,
+                updatedAt,
+                idGroup
+            )
+        `)
+        .eq("idGroup", idGroup);
 
-    if (error) return jsonError("Erreur chargement défis", 500);
-    if (!challenges) return jsonOk([]);
+    if (error) {
+        console.error("Error loading challenges:", error);
+        return jsonError("Erreur chargement défis", 500);
+    }
+    if (!groupChallenges) return jsonOk([]);
+
+    // Filtrer les défis actifs
+    const challenges = groupChallenges
+        .map((gc: any) => gc.Challenge)
+        .filter((c: any) => c && c.isActive);
 
     // Pour chaque défi, calculer les stats
     const challengesWithStats: ChallengeWithStats[] = await Promise.all(
-        challenges.map(async (challenge) => {
+        challenges.map(async (challenge: any) => {
             // Compter les participants et validations
             const { data: participations } = await supabase
-                .from("ChallengeParticipation")
-                .select("idUser, hasValidated, validatedAt")
+                .from("userchallenge")
+                .select("idUser, isValidated, completedDate")
                 .eq("idChallenge", challenge.idChallenge);
 
             const totalParticipants = participations?.length || 0;
-            const totalValidated = participations?.filter(p => p.hasValidated).length || 0;
+            const totalValidated = participations?.filter(p => p.isValidated).length || 0;
             const validationRate = totalParticipants > 0
                 ? Math.round((totalValidated / totalParticipants) * 100)
                 : 0;
 
             // Récupérer les 3 derniers validateurs
             const { data: recentValidators } = await supabase
-                .from("ChallengeParticipation")
+                .from("userchallenge")
                 .select(`
                     idUser,
-                    validatedAt,
+                    completedDate,
                     User:User (name, lastname, username)
                 `)
                 .eq("idChallenge", challenge.idChallenge)
-                .eq("hasValidated", true)
-                .order("validatedAt", { ascending: false })
+                .eq("isValidated", true)
+                .order("completedDate", { ascending: false })
                 .limit(3);
 
             const recentValidatorsList = recentValidators?.map(v => ({
@@ -113,7 +132,7 @@ async function listGroupChallenges(idGroup: number, userId?: string): Promise<Re
                 name: v.User?.name || null,
                 lastname: v.User?.lastname || null,
                 username: v.User?.username || null,
-                validatedAt: v.validatedAt,
+                completedDate: v.completedDate,
             })) || [];
 
             // Participation de l'utilisateur courant
@@ -123,10 +142,16 @@ async function listGroupChallenges(idGroup: number, userId?: string): Promise<Re
                 if (userPart) {
                     userParticipation = {
                         isParticipating: true,
-                        hasValidated: userPart.hasValidated,
-                        validatedAt: userPart.validatedAt,
+                        isValidated: userPart.isValidated,
+                        completedDate: userPart.completedDate,
                     };
                 }
+            }
+
+            // Vérifier si l'utilisateur est modérateur du groupe
+            let userIsModerator = false;
+            if (userId) {
+                userIsModerator = await isModerator(challenge.idGroup, userId);
             }
 
             const status = getChallengeStatus(challenge.startDateTime, challenge.endDateTime);
@@ -140,6 +165,7 @@ async function listGroupChallenges(idGroup: number, userId?: string): Promise<Re
                 status,
                 daysRemaining,
                 userParticipation,
+                userIsModerator,
                 recentValidators: recentValidatorsList,
             };
         })
@@ -161,27 +187,27 @@ async function getChallengeById(idChallenge: number, userId?: string): Promise<R
 
     // Statistiques
     const { data: participations } = await supabase
-        .from("ChallengeParticipation")
-        .select("idUser, hasValidated, validatedAt")
+        .from("userchallenge")
+        .select("idUser, isValidated, completedDate")
         .eq("idChallenge", idChallenge);
 
     const totalParticipants = participations?.length || 0;
-    const totalValidated = participations?.filter(p => p.hasValidated).length || 0;
+    const totalValidated = participations?.filter(p => p.isValidated).length || 0;
     const validationRate = totalParticipants > 0
         ? Math.round((totalValidated / totalParticipants) * 100)
         : 0;
 
     // Validateurs récents
     const { data: recentValidators } = await supabase
-        .from("ChallengeParticipation")
+        .from("userchallenge")
         .select(`
             idUser,
-            validatedAt,
+            completedDate,
             User:User (name, lastname, username)
         `)
         .eq("idChallenge", idChallenge)
-        .eq("hasValidated", true)
-        .order("validatedAt", { ascending: false })
+        .eq("isValidated", true)
+        .order("completedDate", { ascending: false })
         .limit(3);
 
     const recentValidatorsList = recentValidators?.map(v => ({
@@ -189,7 +215,7 @@ async function getChallengeById(idChallenge: number, userId?: string): Promise<R
         name: v.User?.name || null,
         lastname: v.User?.lastname || null,
         username: v.User?.username || null,
-        validatedAt: v.validatedAt,
+        completedDate: v.completedDate,
     })) || [];
 
     // Participation utilisateur
@@ -199,10 +225,16 @@ async function getChallengeById(idChallenge: number, userId?: string): Promise<R
         if (userPart) {
             userParticipation = {
                 isParticipating: true,
-                hasValidated: userPart.hasValidated,
-                validatedAt: userPart.validatedAt,
+                isValidated: userPart.isValidated,
+                completedDate: userPart.completedDate,
             };
         }
+    }
+
+    // Vérifier si l'utilisateur est modérateur du groupe
+    let userIsModerator = false;
+    if (userId) {
+        userIsModerator = await isModerator(challenge.idGroup, userId);
     }
 
     const status = getChallengeStatus(challenge.startDateTime, challenge.endDateTime);
@@ -216,6 +248,7 @@ async function getChallengeById(idChallenge: number, userId?: string): Promise<R
         status,
         daysRemaining,
         userParticipation,
+        userIsModerator,
         recentValidators: recentValidatorsList,
     };
 
@@ -251,13 +284,13 @@ async function createChallenge(idGroup: number, body: CreateChallengeBody): Prom
     const { data: challenge, error: createError } = await supabase
         .from("Challenge")
         .insert({
-            idGroup,
             name,
             description: description || null,
             startDateTime,
             endDateTime,
             objective,
             isActive: true,
+            idGroup: idGroup,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         })
@@ -268,6 +301,14 @@ async function createChallenge(idGroup: number, body: CreateChallengeBody): Prom
         console.error("Error creating challenge:", createError);
         return jsonError("Erreur lors de la création du défi", 500);
     }
+
+    // Créer le lien dans GroupChallenge
+    await supabase
+        .from("GroupChallenge")
+        .insert({
+            idGroup,
+            idChallenge: challenge.idChallenge,
+        });
 
     // Créer automatiquement les participations pour tous les membres du groupe
     const { data: members } = await supabase
@@ -281,12 +322,12 @@ async function createChallenge(idGroup: number, body: CreateChallengeBody): Prom
             idUser: member.idUser,
             idGroup,
             joinedAt: new Date().toISOString(),
-            hasValidated: false,
-            validatedAt: null,
+            isValidated: false,
+            completedDate: null,
         }));
 
         await supabase
-            .from("ChallengeParticipation")
+            .from("userchallenge")
             .insert(participations);
     }
 
@@ -386,7 +427,7 @@ async function deleteChallenge(idChallenge: number, moderatorId: string): Promis
 
 // POST /challenges/:id/validate - Valider un défi
 async function validateChallenge(idChallenge: number, body: ValidateChallengeBody): Promise<Response> {
-    const { userId, note } = body;
+    const { userId} = body;
 
     if (!userId) {
         return jsonError("userId requis", 400);
@@ -422,8 +463,8 @@ async function validateChallenge(idChallenge: number, body: ValidateChallengeBod
 
     // Vérifier que l'utilisateur n'a pas déjà validé
     const { data: participation } = await supabase
-        .from("ChallengeParticipation")
-        .select("hasValidated")
+        .from("userchallenge")
+        .select("isValidated")
         .eq("idChallenge", idChallenge)
         .eq("idUser", userId)
         .single();
@@ -431,14 +472,14 @@ async function validateChallenge(idChallenge: number, body: ValidateChallengeBod
     if (!participation) {
         // Créer la participation si elle n'existe pas (nouveau membre)
         const { error: insertError } = await supabase
-            .from("ChallengeParticipation")
+            .from("userchallenge")
             .insert({
                 idChallenge,
                 idUser: userId,
                 idGroup: challenge.idGroup,
                 joinedAt: new Date().toISOString(),
-                hasValidated: true,
-                validatedAt: new Date().toISOString(),
+                isValidated: true,
+                completedDate: new Date().toISOString(),
             });
 
         if (insertError) {
@@ -446,16 +487,16 @@ async function validateChallenge(idChallenge: number, body: ValidateChallengeBod
             return jsonError("Erreur lors de la validation", 500);
         }
     } else {
-        if (participation.hasValidated) {
+        if (participation.isValidated) {
             return jsonError("Vous avez déjà validé ce défi", 400);
         }
 
         // Mettre à jour la participation
         const { error: updateError } = await supabase
-            .from("ChallengeParticipation")
+            .from("userchallenge")
             .update({
-                hasValidated: true,
-                validatedAt: new Date().toISOString(),
+                isValidated: true,
+                completedDate: new Date().toISOString(),
             })
             .eq("idChallenge", idChallenge)
             .eq("idUser", userId);
@@ -473,15 +514,15 @@ async function validateChallenge(idChallenge: number, body: ValidateChallengeBod
 async function getLeaderboard(idGroup: number): Promise<Response> {
     // Récupérer toutes les participations du groupe avec comptage
     const { data: participations, error } = await supabase
-        .from("ChallengeParticipation")
+        .from("userchallenge")
         .select(`
             idUser,
-            hasValidated,
-            validatedAt,
+            isValidated,
+            completedDate,
             User:User (name, lastname, username)
         `)
         .eq("idGroup", idGroup)
-        .eq("hasValidated", true);
+        .eq("isValidated", true);
 
     if (error) {
         console.error("Error fetching leaderboard:", error);
@@ -506,8 +547,8 @@ async function getLeaderboard(idGroup: number): Promise<Response> {
         const existing = userStats.get(p.idUser);
         if (existing) {
             existing.totalChallengesCompleted++;
-            if (p.validatedAt && (!existing.lastValidationDate || p.validatedAt > existing.lastValidationDate)) {
-                existing.lastValidationDate = p.validatedAt;
+            if (p.completedDate && (!existing.lastValidationDate || p.completedDate > existing.lastValidationDate)) {
+                existing.lastValidationDate = p.completedDate;
             }
         } else {
             userStats.set(p.idUser, {
@@ -516,7 +557,7 @@ async function getLeaderboard(idGroup: number): Promise<Response> {
                 lastname: p.User?.lastname || null,
                 username: p.User?.username || null,
                 totalChallengesCompleted: 1,
-                lastValidationDate: p.validatedAt,
+                lastValidationDate: p.completedDate,
             });
         }
     });
