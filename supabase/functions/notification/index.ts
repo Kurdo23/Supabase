@@ -60,6 +60,140 @@ async function getNotifications(userId: string): Promise<Response> {
 }
 
 /**
+ * POST /notifications
+ * Crée une nouvelle notification (message admin)
+ */
+async function createNotification(body: any, adminUserId: string): Promise<Response> {
+    const { recipientId, type, title, message } = body;
+
+    console.log('=== CREATE NOTIFICATION DEBUG ===');
+    console.log('Body reçu:', JSON.stringify(body, null, 2));
+    console.log('recipientId:', recipientId, 'Type:', typeof recipientId);
+    console.log('adminUserId:', adminUserId, 'Type:', typeof adminUserId);
+
+    // Validation
+    if (!recipientId || !type || !title || !message) {
+        const missing = [];
+        if (!recipientId) missing.push('recipientId');
+        if (!type) missing.push('type');
+        if (!title) missing.push('title');
+        if (!message) missing.push('message');
+        return jsonError(`Champs requis manquants: ${missing.join(', ')}`, 400);
+    }
+
+    // Vérifier que le destinataire existe dans la table User
+    console.log('Recherche utilisateur avec idUser =', recipientId);
+    const { data: recipient, error: userError } = await supabase
+        .from("User")
+        .select("idUser, username, email, name, lastname")
+        .eq("idUser", recipientId)
+        .maybeSingle();
+
+    console.log('Résultat recherche:', { found: !!recipient, error: userError?.message });
+
+    if (userError) {
+        console.error("Erreur Supabase:", userError);
+        return jsonError("Erreur lors de la recherche de l'utilisateur: " + userError.message, 500);
+    }
+
+    if (!recipient) {
+        // Debug: lister quelques utilisateurs
+        const { data: sampleUsers } = await supabase
+            .from("User")
+            .select("idUser, username, email")
+            .limit(3);
+
+        console.log('Exemples d\'utilisateurs:', sampleUsers);
+
+        return jsonError(
+            `Utilisateur destinataire introuvable avec idUser: ${recipientId}. ` +
+            `Vérifiez les logs pour voir les exemples d'IDs valides.`,
+            404
+        );
+    }
+
+    console.log('Utilisateur trouvé:', { idUser: recipient.idUser, username: recipient.username });
+
+    // Vérifier que l'expéditeur est admin
+    const { data: admin } = await supabase
+        .from("User")
+        .select("isadmin, username")
+        .eq("idUser", adminUserId)
+        .maybeSingle();
+
+    console.log('Admin check:', { isAdmin: admin?.isadmin, username: admin?.username });
+
+    if (!admin?.isadmin && type === "admin_message") {
+        return jsonError("Seuls les administrateurs peuvent envoyer ce type de message", 403);
+    }
+
+    // Créer la notification
+    const notificationData = {
+        idUser: recipient.idUser,
+        type: type,
+        title: title,
+        message: message,
+        data: {
+            sentBy: adminUserId,
+            sentByUsername: admin?.username,
+            sentAt: new Date().toISOString()
+        },
+        isRead: false,
+        createdAt: new Date().toISOString(),
+    };
+
+    console.log('Tentative insertion notification:', notificationData);
+
+    const { data: newNotif, error: insertError } = await supabase
+        .from("Notification")
+        .insert(notificationData)
+        .select()
+        .single();
+
+    if (insertError) {
+        console.error("Erreur insertion notification:", insertError);
+        return jsonError("Erreur lors de la création de la notification: " + insertError.message, 500);
+    }
+
+    console.log('✅ Notification créée avec succès, ID:', newNotif.id);
+    return jsonOk({ success: true, notification: newNotif });
+}
+
+/**
+ * DELETE /notifications/:id
+ * Supprime une notification
+ */
+async function deleteNotification(notificationId: string, userId: string): Promise<Response> {
+    // Vérifier que la notification appartient à l'utilisateur
+    const { data: notification, error: fetchError } = await supabase
+        .from("Notification")
+        .select("idUser, type")
+        .eq("id", notificationId)
+        .maybeSingle();
+
+    if (fetchError || !notification) {
+        return jsonError("Notification introuvable", 404);
+    }
+
+    if (notification.idUser !== userId) {
+        return jsonError("Accès refusé", 403);
+    }
+
+    // Supprimer la notification
+    const { error: deleteError } = await supabase
+        .from("Notification")
+        .delete()
+        .eq("id", notificationId);
+
+    if (deleteError) {
+        console.error("Error deleting notification:", deleteError);
+        return jsonError("Erreur lors de la suppression", 500);
+    }
+
+    return jsonOk({ success: true });
+}
+
+/**
  * PATCH /notifications/:id/read
  * Marque une notification comme lue
  */
@@ -244,8 +378,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
         console.log(`[${req.method}] Original path: ${url.pathname}, Normalized: ${path}`);
 
         // Router les requêtes
+
+        // GET /notification ou /notifications
         if (req.method === "GET" && (path === "/notifications" || path === "" || path === "/")) {
             return await getNotifications(userId);
+        }
+
+        // POST /notification ou /notifications - Créer une notification
+        if (req.method === "POST" && (path === "/notifications" || path === "" || path === "/")) {
+            const body = await req.json();
+            return await createNotification(body, userId);
         }
 
         // PATCH /notification/:id/read
@@ -253,6 +395,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (req.method === "PATCH" && readMatch) {
             const notificationId = readMatch[1];
             return await markAsRead(notificationId, userId);
+        }
+
+        // DELETE /notification/:id
+        const deleteMatch = path.match(/^\/([\w-]+)$/);
+        if (req.method === "DELETE" && deleteMatch) {
+            const notificationId = deleteMatch[1];
+            return await deleteNotification(notificationId, userId);
         }
 
         // POST /notification/invitations/:idGroup/accept

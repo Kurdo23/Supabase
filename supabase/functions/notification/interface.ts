@@ -7,7 +7,10 @@ export type NotificationType =
     | "group_request_rejected"
     | "new_member_joined"
     | "promoted_to_moderator"
-    | "demoted_from_moderator";
+    | "demoted_from_moderator"
+    | "admin_message"
+    | "system"
+    | "info";
 
 /**
  * Interface pour une notification
