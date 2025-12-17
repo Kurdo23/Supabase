@@ -43,3 +43,7 @@ type LeaveGroupBody = {
     userId: string;
     newModeratorId?: string; // Optionnel : promouvoir ce membre en modérateur avant de partir
 };
+
+type UpdateGroupLogoBody = {
+    logo: string;
+};
