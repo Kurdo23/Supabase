@@ -1,35 +1,38 @@
 import {SupabaseClient} from "@supabase/supabase-js";
 
-interface GroupProfile {
+export interface GroupProfile {
     idGroup: number;
     name: string;
     description: string;
     logo: string;
-    isOpen: boolean;
     isCertified: boolean;
     isPublic: boolean;
     isSoftDelete: boolean;
     created_at: string;
 }
 
-interface GroupStats {
+export interface GroupDetailedProfile extends GroupProfile{
+    memberCount: number;
+    adminUsers: AdminUser[];
+    lastActivity: string |null;
+}
+
+export interface AdminUser{
+    idUser: string;
+    username: string;
+    email: string;
+    avatar?: string;
+}
+export interface GroupStats {
     totalGroups: number;
     activeGroups: number;
-    inactiveGroups: number;
+    inactiveGroups: number | 0;
     totalMembers: number;
     totalPoints: number;
     lastUpdated: string;
 }
 
-interface PaginatedGroups {
-    data: GroupProfile[];
-    page: number;
-    pageSize: number;
-    totalCount: number | null;
-    hasMore: boolean;
-}
-
-interface CompleteGroupSummary {
+export interface CompleteGroupSummary {
     stats: GroupStats;
     groups: GroupProfile[];
     pagination: {
@@ -41,9 +44,23 @@ interface CompleteGroupSummary {
     };
 }
 
-interface CompleteGroupResponse {
+export interface CompleteGroupResponse {
     summary: CompleteGroupSummary | null;
     error: string | null;
     success: boolean;
 }
 
+export interface GroupDetailResponse{
+    group: GroupDetailedProfile | null;
+    error: string | null;
+    success: boolean;
+}
+
+export interface DeleteResponse{
+    data: {
+        status: number;
+        message: string;
+    } | null;
+    error: string | null;
+    success: boolean;
+}

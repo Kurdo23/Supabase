@@ -1,4 +1,12 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import {
+    AdminUser,
+    CompleteGroupResponse,
+    CompleteGroupSummary, DeleteResponse, GroupDetailedProfile,
+    GroupDetailResponse,
+    GroupProfile,
+    GroupStats
+} from "./interfaces.ts";
 
 // TODO check for response status to see if they all fit the right kind of response
 // ============================================
@@ -23,8 +31,6 @@ export async function getCompleteGroupSummary(
     supabase: SupabaseClient,
     page: number = 1,
     pageSize: number = 20,
-    statusFilter: 'all' | 'active' | 'inactive' = 'all',
-    typeFilter: 'all' | 'family' | 'enterprise' | 'association' | 'other' = 'all',
     searchQuery?: string
 ): Promise<CompleteGroupResponse> {
     try {
@@ -59,23 +65,7 @@ export async function getCompleteGroupSummary(
         // Groupes inactifs
         const activeCount = (totalCount || 0) - ( inactiveCount|| 0);
 
-      /*  // Total membres (somme de tous les member_count)
-        const { data: memberData, error: memberError } = await supabase
-            .from('GroupMember')
-            .select('idUser', {count: 'exact', head: true})
-            .eq('idGroup', idGroup)*/
 
-        //if (memberError) throw new Error(`Erreur membres: ${memberError.message}`);
-
-        //const totalMembers = memberData?.reduce((sum, group) => sum + (group.member_count || 0), 0) || 0;
-
-       /* // Total points (somme de tous les total_points)
-        const { data: pointsData, error: pointsError } = await supabase
-            .from('groups')
-            .select('total_points')
-            .is('deleted_at', null);*/
-
-        //if (pointsError) throw new Error(`Erreur points: ${pointsError.message}`);
 
         //const totalPoints = pointsData?.reduce((sum, group) => sum + (group.total_points || 0), 0) || 0;µ
         let totalPoints = 0;
@@ -83,7 +73,7 @@ export async function getCompleteGroupSummary(
         const stats: GroupStats = {
             totalGroups: totalCount || 0,
             activeGroups: activeCount || 0,
-            inactiveGroups: inactiveCount,
+            inactiveGroups: inactiveCount || 0,
             totalMembers,
             totalPoints,
             lastUpdated: new Date().toISOString(),
@@ -101,22 +91,11 @@ export async function getCompleteGroupSummary(
             .from('Group')
             .select('*', { count: 'exact' })
             .range(from, to)
-            //.order('name', { ascending: true });
+           // .order('created_at', {ascending: false})
 
-        /*// Appliquer le filtre de statut
-        if (statusFilter !== 'all') {
-            query = query.eq('status', statusFilter);
-        }*/
-
-        /*// Appliquer le filtre de type
-        if (typeFilter !== 'all') {
-            query = query.eq('type', typeFilter);
-        }*/
-
-        /*// Appliquer la recherche
-        if (searchQuery && searchQuery.trim()) {
-            query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
-        }*/
+        if(searchQuery && searchQuery.trim()){
+            query = query.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+        }
 
         const { data, error: groupsError, count: groupsCount } = await query;
 
@@ -130,7 +109,6 @@ export async function getCompleteGroupSummary(
             name: group.name,
             description: group.description,
             logo: group.logo,
-            isOpen: group.isOpen,
             isCertified: group.isCertified,
             isPublic: group.isPublic,
             isSoftDelete: group.isSoftDelete,
@@ -176,136 +154,7 @@ export async function getCompleteGroupSummary(
         };
     }
 }
-
-/**
- * Récupère TOUS les groupes (toutes les pages) avec les statistiques
- * ⚠️ À utiliser avec précaution si vous avez beaucoup de groupes
- *
- * @param supabase - Client Supabase
- * @param statusFilter - Filtrer par statut
- * @param typeFilter - Filtrer par type
- * @param maxPages - Limite de sécurité (par défaut 100)
- * @returns Promise avec stats + tous les groupes
- */
-export async function getAllGroupsWithStats(
-    supabase: SupabaseClient,
-    statusFilter: 'all' | 'active' | 'inactive' = 'all',
-    typeFilter: 'all' | 'family' | 'enterprise' | 'association' | 'other' = 'all',
-    maxPages: number = 100
-): Promise<CompleteGroupResponse> {
-    try {
-        const allGroups: GroupProfile[] = [];
-        let currentPage = 1;
-        let stats: GroupStats | null = null;
-        let pagination: CompleteGroupSummary['pagination'] | null = null;
-
-        while (currentPage <= maxPages) {
-            const response = await getCompleteGroupSummary(
-                supabase,
-                currentPage,
-                20,
-                statusFilter,
-                typeFilter
-            );
-
-            if (!response.success || !response.summary) {
-                throw new Error(response.error || 'Erreur de récupération');
-            }
-
-            // Sauvegarder les stats (identiques à chaque page)
-            if (currentPage === 1) {
-                stats = response.summary.stats;
-            }
-
-            // Ajouter les groupes
-            allGroups.push(...response.summary.groups);
-
-            // Sauvegarder les infos de pagination
-            pagination = response.summary.pagination;
-
-            // Arrêter s'il n'y a plus de pages
-            if (!response.summary.pagination.hasMore) {
-                break;
-            }
-
-            currentPage++;
-        }
-
-        if (!stats || !pagination) {
-            throw new Error('Impossible de récupérer les données');
-        }
-
-        return {
-            summary: {
-                stats,
-                groups: allGroups,
-                pagination: {
-                    ...pagination,
-                    currentPage: 1,
-                    pageSize: allGroups.length,
-                    hasMore: false,
-                },
-            },
-            error: null,
-            success: true,
-        };
-
-    } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
-        console.error('Erreur getAllGroupsWithStats:', errorMessage);
-
-        return {
-            summary: null,
-            error: errorMessage,
-            success: false,
-        };
-    }
-}
-
-// ============================================
-// FONCTIONS UTILITAIRES
-// ============================================
-
-/**
- * Formatte les points en format lisible (ex: 141000 → "141k")
- */
-export function formatPoints(points: number): string {
-    if (points >= 1000000) {
-        return `${Math.floor(points / 1000000)}M`;
-    }
-    if (points >= 1000) {
-        return `${Math.floor(points / 1000)}k`;
-    }
-    return points.toString();
-}
-
-/**
- * Retourne le label français du type de groupe
- */
-export function getGroupTypeLabel(type: string): string {
-    const labels: Record<string, string> = {
-        family: 'Famille',
-        enterprise: 'Entreprise',
-        association: 'Association',
-        other: 'Autre',
-    };
-    return labels[type] || type;
-}
-
-/**
- * Retourne l'icône/emoji correspondant au type de groupe
- */
-export function getGroupTypeIcon(type: string): string {
-    const icons: Record<string, string> = {
-        family: '👨‍👩‍👧‍👦',
-        enterprise: '🏢',
-        association: '🤝',
-        other: '👥',
-    };
-    return icons[type] || '📁';
-}
-
-export async function getGroupDetail(supabase: SupabaseClient, idGroup: number):Promise<CompleteResponse>{
+export async function getGroupDetail(supabase: SupabaseClient, idGroup: number):Promise<GroupDetailResponse>{
     try{
         let query = supabase
             .from('Group')
@@ -313,14 +162,64 @@ export async function getGroupDetail(supabase: SupabaseClient, idGroup: number):
             .eq('idGroup', idGroup)
             .single();
 
-        const { data, error: usersError } = await query;
-        if (usersError) {
-            throw new Error(`Erreur utilisateurs: ${usersError.message}`);
+        const { data: groupData, error: groupError } = await query;
+        if (groupError) {
+            throw new Error(`Erreur utilisateurs: ${groupError.message}`);
         }
 
-        const group: GroupProfile = data || [];
+        // Récupérer le nombre de membres
+        let memberQuery = await supabase
+            .from('')
+            .select('*', {count: "exact", head: true})
+            .eq('idGroup', idGroup);
+        const {count: memberCount, error: memberError} = await memberQuery;
+        if(memberError){
+            throw new Error('erreur membres: ' + memberError.message);
+
+        }
+
+        const{ data: adminData, error: adminError} = await supabase
+            .from('GroupMember') // TODO à modifier
+            .select('idUser, ' +
+                'User:idUser (' +
+                'idUser, pseudo, email, avatar)'
+            )
+            .eq('idGroup', idGroup)
+            .eq('isAdmin', true);
+
+        if(adminError){
+            throw new Error('Erreur admins: ' + adminError.message);
+        }
+
+        //Formater les admin
+        const adminUsers: AdminUser[] = (adminData ||[])
+        //    .filter(item => item.Users)
+            .map((item: any) => ({
+                idUser: item.User.idUser,
+                username: item.User.pseudo,
+                email: item.User.email,
+                avatar: item.User.avatar,
+            }));
+
+        // Récupéré la dernier activité
+        //TODO récupérer l'activité
+
+
+        const detailGroup:GroupDetailedProfile = {
+            idGroup: groupData.idGroup,
+            name: groupData.name,
+            description: groupData.description,
+            logo: groupData.logo,
+            isCertified: groupData.isCertified,
+            isPublic: groupData.isPublic,
+            isSoftDelete: groupData.isSoftDelete,
+            created_at: groupData.created_at,
+            memberCount: memberCount || 0,
+            adminUsers: adminUsers,
+            lastActivity: null,
+    }
         return {
-            group,
+            group: detailGroup,
             error: null,
             success: true,
         };
@@ -330,7 +229,7 @@ export async function getGroupDetail(supabase: SupabaseClient, idGroup: number):
         console.error('Erreur lors de la récupération complète:', errorMessage);
 
         return {
-            summary: null,
+            group: null,
             error: errorMessage,
             success: false,
         };
@@ -338,7 +237,7 @@ export async function getGroupDetail(supabase: SupabaseClient, idGroup: number):
 
 }
 
-export async function softDeleteGroup(supabase: SupabaseClient, idGroup: number): Promise<CompleteResponse>{
+export async function softDeleteGroup(supabase: SupabaseClient, idGroup: number): Promise<DeleteResponse>{
     try{
         let query = supabase
             .from('Group')
@@ -370,7 +269,7 @@ export async function softDeleteGroup(supabase: SupabaseClient, idGroup: number)
     }
 }
 
-export async function permanentelyDeleteGroup(supabase: SupabaseClient, idGroup: number):Promise<CompleteResponse>{
+export async function permanentelyDeleteGroup(supabase: SupabaseClient, idGroup: number):Promise<DeleteResponse>{
     try{
         let query = supabase
             .from('Group')
@@ -386,7 +285,7 @@ export async function permanentelyDeleteGroup(supabase: SupabaseClient, idGroup:
             message: "hard delete completed"
         }
         return{
-            response,
+            data: null,
             error: null,
             success: true,
         }
@@ -395,7 +294,7 @@ export async function permanentelyDeleteGroup(supabase: SupabaseClient, idGroup:
         console.error('Erreur lors de la récupération complète:', errorMessage);
 
         return {
-            summary: null,
+            data: null,
             error: errorMessage,
             success: false,
         };

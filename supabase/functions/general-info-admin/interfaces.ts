@@ -1,11 +1,11 @@
-interface DashboardStats {
+export interface DashboardStats {
     users: {
         total: number;
         activeToday: number;
         newThisMonth: number;
-        activeThisMonth: number;
+        activeThisMonth: number | null;
         active: number
-        inactive: number;
+        inactive: number | null;
         newUsers: number;
     };
     challenges: {
@@ -21,7 +21,7 @@ interface DashboardStats {
     lastUpdated: string;
 }
 
-interface DashboardResponse {
+export interface DashboardResponse {
     stats: DashboardStats | null;
     error: string | null;
     success: boolean;

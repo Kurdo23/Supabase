@@ -1,4 +1,4 @@
-import {getDashboardStats} from "./supabase/functions/general-info-admin/helpers";
+import {getDashboardSummary} from "./supabase/functions/general-info-admin/helpers";
 import {createClient} from "@supabase/supabase-js";
 import {readEnv} from "../../AppData/Local/deno/npm/registry.npmjs.org/openai/4.104.0/core";
 import {env } from './envConfig'
@@ -7,7 +7,7 @@ async function example1(){
     const supabaseurl = env.supabaseUrl;
     const supabaseAnonKye = env.supabaseAnonKey;
     const supabaseClient = createClient(supabaseurl, supabaseAnonKye);
-    const response = await getDashboardStats(supabaseClient);
+    const response = await getDashboardSummary(supabaseClient);
 
     if (response.success && response.stats) {
         console.log('Total utilisateurs:', response.stats.users.total);
@@ -15,6 +15,20 @@ async function example1(){
         console.log('Challenges:', response.stats.challenges);
         console.log('Par mois:', response.stats.usersByMonth);
     }
+    const now = new Date();
+    const startOfTodayISO =new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate()
+    ));
+    console.log(activeToday)
+    const { count: activeToday, error: activeTodayError } = await supabase
+        .from('User')
+        .select('*', { count: 'exact', head: true })
+        .is('isSoftDelete', false)
+        .gte('last_sign_in_at', startOfTodayISO);
+
+    console.log(activeToday);
 }
 
 //example1();
@@ -23,7 +37,7 @@ async function example2(){
     const supabaseurl = env.supabaseUrl;
     const supabaseAnonKye = env.supabaseAnonKey;
 
-    /*const response = await fetch(`${supabaseurl}/functions/v1/general-info-admin`, {
+    const response = await fetch(`${supabaseurl}/functions/v1/general-info-admin`, {
         method: 'GET',
         headers: {
             Authorization: `Bearer ${supabaseAnonKye}`,
@@ -32,8 +46,8 @@ async function example2(){
     })
 
     const data = await response.json();
-    console.log(data);*/
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+    console.log(data);
+   /* const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
     for(let i = 0; i < 10; i++){
         const startTime = Date.now();
         const { data, error } = await supabase.functions.invoke('general-info-admin', {
@@ -51,13 +65,10 @@ async function example2(){
         }
         console.log('==========')
 
-    }
-
-
-
+    }*/
 }
 
-//example2()
+example2()
 
 async function concurrentCalls(){
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
@@ -89,4 +100,4 @@ async function concurrentCalls(){
     console.log(results);
 }
 
-concurrentCalls();
+//concurrentCalls();

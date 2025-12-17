@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import {DashboardResponse, DashboardStats} from "./interfaces.ts";
 
 /**
  * Récupère toutes les statistiques du dashboard admin
@@ -162,7 +163,7 @@ export async function getDashboardSummary(
                 newUsers: newThisMonth || 0, // Alias pour clarté
             },
             challenges: challengesWithParticipants.sort((a, b) => b.participantCount - a.participantCount),
-            usersByMonth,
+            usersByMonth:  usersByMonth,
             lastUpdated: new Date().toISOString(),
         };
 

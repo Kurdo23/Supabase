@@ -28,36 +28,55 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const method = req.method;
-    const command = url.pathname.split("/").pop();
-    console.log(command);
-    const id = command;
-    console.log(id);
+    const pathParts = url.pathname.split("/").filter(p => p);
+    // Le dernier élément du path (peut être "group-mana" ou un ID)
+    const lastPathPart = pathParts[pathParts.length - 1];
+
+    // Vérifier si c'est un ID numérique
+    const isNumericId = !isNaN(Number(lastPathPart));
+    const groupId = isNumericId ? Number(lastPathPart) : null;
+
+    console.log('Path parts:', pathParts);
+    console.log('Group ID:', groupId);
     let data;
     try {
         switch (method) {
             case "GET":
-                if (id !== "group-mana") {
-                    data = await getGroupDetail(supaClient, id);
+                if (groupId !== null) {
+                    console.log('Fetching group details for ID:', groupId);
+                    data = await getGroupDetail(supaClient, groupId);
                     return new Response(
                         JSON.stringify(data),
                         { headers: {...corsHeaders, "Content-Type": "application/json" } },
+
                     );
                 } else {
-                    data = await getCompleteGroupSummary(supaClient);
-                    console.log(data);
+                    console.log('Fetching group summary');
+                    const page = parseInt(url.searchParams.get('page') || '1');
+                    const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
+                    const searchQuery = url.searchParams.get('search') || undefined;
+
+                    console.log('Pagination params:', { page, pageSize, searchQuery });
+
+                    const summaryData = await getCompleteGroupSummary(
+                        supaClient,
+                        page,
+                        pageSize,
+                        searchQuery
+                    );
                     return new Response(
-                        JSON.stringify(data),
+                        JSON.stringify(summaryData),
                         { headers: {...corsHeaders, "Content-Type": "application/json" } },
                     );
                 }
             case "PUT":
-                data = await softDeleteGroup(supaClient, id);
+                data = await softDeleteGroup(supaClient, groupId || 0);
                 return new Response (
                     JSON.stringify(data),
                     {headers: {...corsHeaders, "Content-Type": "application/json"}},
                 );
             case "DELETE":
-                data = await permanentelyDeleteGroup(supaClient, id);
+                data = await permanentelyDeleteGroup(supaClient, groupId || 0);
             default:
                 return new Response(
                     JSON.stringify({ error: "Method not allowed" }),
@@ -73,7 +92,7 @@ Deno.serve(async (req) => {
         console.error("Error:", err);
 
         return new Response(
-            JSON.stringify({ error: err.message }),
+            JSON.stringify({ error: err instanceof Error ? err.message: 'Erreur' }),
             {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
                 status: 400,

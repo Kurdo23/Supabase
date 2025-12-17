@@ -35,9 +35,10 @@ Deno.serve(async (req) => {
         switch (method) {
             case "GET":
                 data = await getDashboardSummary(supaClient);
+                console.log(" stat data from supabase: " + data.stats.users.total);
                 return new Response(
                     JSON.stringify(data),
-                    {headers: {"Content-Type": "application/json"}},
+                    {headers: {...corsHeaders, "Content-Type": "application/json"}},
                 );
 
             default:
