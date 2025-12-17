@@ -12,7 +12,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "DELETE, OPTIONS"
+  "Access-Control-Allow-Methods": "DELETE, PATCH, OPTIONS"
 };
 
 // Serve l'Edge Function
@@ -20,14 +20,6 @@ Deno.serve(async (req) => {
   // Autoriser OPTIONS pour le pré-vol CORS
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
-  }
-
-  // Vérifier que c'est une requête DELETE
-  if (req.method !== "DELETE") {
-    return new Response(
-        JSON.stringify({ error: "Méthode non autorisée. Utilisez DELETE." }),
-        { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   }
 
   try {
@@ -40,6 +32,48 @@ Deno.serve(async (req) => {
       return new Response(
           JSON.stringify({ error: "ID utilisateur manquant" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // PATCH : Restaurer un utilisateur (annuler soft delete)
+    if (req.method === "PATCH") {
+      const { data, error } = await supabase
+          .from("User")
+          .update({ isSoftDelete: false, lastmodified: new Date().toISOString() })
+          .eq("idUser", userId)
+          .eq("isSoftDelete", true) // Seulement les utilisateurs soft deleted
+          .select();
+
+      if (error) {
+        console.error("Erreur restore:", error.message);
+        return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!data || data.length === 0) {
+        return new Response(
+            JSON.stringify({ error: "Utilisateur non trouvé ou non supprimé" }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Utilisateur restauré avec succès",
+            user: data[0]
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // DELETE : Supprimer un utilisateur
+    if (req.method !== "DELETE") {
+      return new Response(
+          JSON.stringify({ error: "Méthode non autorisée. Utilisez DELETE ou PATCH." }),
+          { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
