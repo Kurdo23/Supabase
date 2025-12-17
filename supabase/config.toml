@@ -467,6 +467,18 @@ entrypoint = "./functions/notification/index.ts"
 # static_files = [ "./functions/notification/*.html" ]
 
 [functions.getCompanyRanking]
+[functions.user-mana]
+enabled = true
+verify_jwt = true
+import_map = "./functions/user-mana/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/user-mana/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/user-mana/*.html" ]
+
+[functions.getUser]
 enabled = true
 verify_jwt = true
 import_map = "./functions/getCompanyRanking/deno.json"
@@ -619,3 +631,58 @@ entrypoint = "./functions/send-email/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/send-email/*.html" ]
+
+[functions.send-email]
+enabled = true
+verify_jwt = true
+import_map = "./functions/send-email/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/send-email/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/send-email/*.html" ]
+
+[functions.general-info-admin]
+enabled = true
+verify_jwt = true
+import_map = "./functions/general-info-admin/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/general-info-admin/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/general-info-admin/*.html" ]
+
+[functions.group-mana]
+enabled = true
+verify_jwt = true
+import_map = "./functions/group-mana/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/group-mana/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/group-mana/*.html" ]
+
+[functions.challenge-mana]
+enabled = true
+verify_jwt = true
+import_map = "./functions/challenge-mana/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/challenge-mana/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/challenge-mana/*.html" ]
+
+[functions.certification-mana]
+enabled = true
+verify_jwt = true
+import_map = "./functions/certification-mana/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/certification-mana/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/certification-mana/*.html" ]
