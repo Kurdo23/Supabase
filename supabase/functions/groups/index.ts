@@ -5,6 +5,7 @@ import type {
     CreateGroupBody,
     JoinGroupBody,
     LeaveGroupBody,
+    UpdateGroupLogoBody,
 } from "./interface.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -15,6 +16,7 @@ const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers":
         "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Content-Type": "application/json"
 };
 
@@ -167,7 +169,7 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
     // Pour les groupes privés, créer une demande d'adhésion
     // Vérifier si une demande existe déjà
     const { data: existingRequest } = await supabase
-        .from("Groupjoinrequest")
+        .from("GroupJoinRequest")
         .select("status")
         .eq("idGroup", idGroup)
         .eq("idUser", userId)
@@ -185,7 +187,7 @@ async function joinGroup(idGroup: number, body: JoinGroupBody): Promise<Response
 
     // Créer ou mettre à jour la demande
     const { error: requestError } = await supabase
-        .from("Groupjoinrequest")
+        .from("GroupJoinRequest")
         .upsert({
             idGroup,
             idUser: userId,
@@ -310,6 +312,37 @@ async function leaveGroup(idGroup: number, body: LeaveGroupBody): Promise<Respon
     return jsonOk({ status: "left" });
 }
 
+async function updateGroupLogo(idGroup: number, body: UpdateGroupLogoBody): Promise<Response> {
+    const { logo } = body;
+
+    if (!logo) return jsonError("Logo requis", 400);
+
+    // Vérifier que le groupe existe
+    const { data: group, error: groupError } = await supabase
+        .from("Group")
+        .select("idGroup")
+        .eq("idGroup", idGroup)
+        .eq("isSoftDelete", false)
+        .maybeSingle();
+
+    if (groupError || !group) {
+        return jsonError("Communauté introuvable", 404);
+    }
+
+    // Mettre à jour le logo
+    const { error: updateError } = await supabase
+        .from("Group")
+        .update({ logo })
+        .eq("idGroup", idGroup);
+
+    if (updateError) {
+        console.error("Error updating logo:", updateError);
+        return jsonError("Erreur lors de la mise à jour du logo", 500);
+    }
+
+    return jsonOk({ success: true, logo });
+}
+
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -347,6 +380,14 @@ Deno.serve(async (req) => {
             if (Number.isNaN(idGroup)) return jsonError("idGroup invalide", 400);
             const body = await req.json();
             return await leaveGroup(idGroup, body);
+        }
+
+        // PATCH /groups/:id/logo
+        if (req.method === "PATCH" && rest.length === 2 && rest[1] === "logo") {
+            const idGroup = Number(rest[0]);
+            if (Number.isNaN(idGroup)) return jsonError("idGroup invalide", 400);
+            const body = await req.json();
+            return await updateGroupLogo(idGroup, body);
         }
 
         return jsonError("Route non trouvée", 404);
