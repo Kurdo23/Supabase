@@ -2,7 +2,6 @@ import {createClient} from "@supabase/supabase-js";
 
 import {env} from './envConfig'
 import {
-    formatPoints,
     getCompleteGroupSummary,
     getGroupDetail,
     permanentelyDeleteGroup,
@@ -22,7 +21,7 @@ async function exemple1() {
         console.log(`Groupes actifs: ${result.summary.stats.activeGroups}`);
         console.log(`Groupes inactifs: ${result.summary.stats.inactiveGroups}`);
         console.log(`Total membres: ${result.summary.stats.totalMembers}`);
-        console.log(`Points totaux: ${formatPoints(result.summary.stats.totalPoints)}`);
+       // console.log(`Points totaux: ${formatPoints(result.summary.stats.totalPoints)}`);
 
         console.log('\n👥 GROUPES (page 1):');
         result.summary.groups.forEach(group => {
@@ -40,15 +39,17 @@ async function exemple2() {
     const supabase = createClient(supabaseurl, supabasekey);
 
 
-    const result = await getGroupDetail(supabase, 15);
-
+    const result = await getGroupDetail(supabase, 65);
+    console.log(result)
     if (result.success && result.group) {
         console.log('📊 Détail groupe:');
         console.log(`id du group: ${result.group.idGroup}`);
         console.log(`nom du groupe: ${result.group.name}`);
         console.log(`description: ${result.group.description}`);
         console.log(`logo: ${result.group.logo}`);
-        console.log(`reste: ${result.group.isOpen}, ${result.group.isSoftDelete}`);
+        console.log(`certif: ${result.group.isCertified}`);
+        console.log('Admin Users:', JSON.stringify(result.group.adminUsers, null, 2));
+        console.log(`reste: ${result.group.isSoftDelete}`);
 
 
     }
@@ -75,9 +76,6 @@ async function exemple4() {
 
     const result = await permanentelyDeleteGroup(supabase, 56);
 
-    if (result.success && result.response) {
-        console.log(result.data)
-        console.log(result.response)
-    }
+
 }
 //exemple4();

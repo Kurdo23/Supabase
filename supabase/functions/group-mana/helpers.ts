@@ -169,7 +169,7 @@ export async function getGroupDetail(supabase: SupabaseClient, idGroup: number):
 
         // Récupérer le nombre de membres
         let memberQuery = await supabase
-            .from('')
+            .from('GroupMember')
             .select('*', {count: "exact", head: true})
             .eq('idGroup', idGroup);
         const {count: memberCount, error: memberError} = await memberQuery;
@@ -180,26 +180,29 @@ export async function getGroupDetail(supabase: SupabaseClient, idGroup: number):
 
         const{ data: adminData, error: adminError} = await supabase
             .from('GroupMember') // TODO à modifier
-            .select('idUser, ' +
-                'User:idUser (' +
-                'idUser, pseudo, email, avatar)'
-            )
+            .select('idUser,\n' +
+                '        User!inner (\n' +
+                '            idUser,\n' +
+                '            username,\n' +
+                '            email,\n' +
+                '            avatar\n' +
+                '        )')
             .eq('idGroup', idGroup)
-            .eq('isAdmin', true);
+            .eq('isModerator', true);
 
         if(adminError){
             throw new Error('Erreur admins: ' + adminError.message);
         }
+        console.log('les admins: ' + adminData.length);
 
-        //Formater les admin
-        const adminUsers: AdminUser[] = (adminData ||[])
-        //    .filter(item => item.Users)
+        const adminUsers: AdminUser[] = (adminData || [])
             .map((item: any) => ({
                 idUser: item.User.idUser,
-                username: item.User.pseudo,
+                username: item.User.username,
                 email: item.User.email,
                 avatar: item.User.avatar,
             }));
+
 
         // Récupéré la dernier activité
         //TODO récupérer l'activité
