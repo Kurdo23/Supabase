@@ -2,20 +2,58 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json"
 };
 
-Deno.serve(async (req) => {
+function jsonOk(data: unknown, status = 200): Response {
+    return new Response(JSON.stringify(data), {
+        status,
+        headers: corsHeaders,
+    });
+}
+
+function jsonError(message: string, status = 400): Response {
+    return new Response(JSON.stringify({ error: message }), {
+        status,
+        headers: corsHeaders,
+    });
+}
+
+Deno.serve(async (req: Request): Promise<Response> => {
+    // Handle CORS preflight
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
 
     try {
+        // Authentification
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader?.startsWith("Bearer ")) {
+            return jsonError("Missing or invalid Authorization header", 401);
+        }
+
+        // Créer un client avec l'ANON_KEY et le token utilisateur pour l'auth
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+                headers: {
+                    Authorization: authHeader,
+                },
+            },
+        });
+
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+        if (authError || !user) {
+            return jsonError("Utilisateur non authentifié", 401);
+        }
+
         // Récupérer les paramètres de pagination et de tri
         const { offset = 0, limit = 20, sortBy = "co2" } = await req.json();
 
@@ -24,7 +62,10 @@ Deno.serve(async (req) => {
             .from("User")
             .select("idUser, username, xp");
 
-        if (userError) throw userError;
+        if (userError) {
+            console.error("Error fetching users:", userError);
+            return jsonError("Erreur lors de la récupération des utilisateurs", 500);
+        }
 
         const userRanks: any[] = [];
 
@@ -38,7 +79,11 @@ Deno.serve(async (req) => {
                 .eq("idUser", u.idUser)
                 .order("dateSended", { ascending: false })
                 .limit(2);
-            if (qError) throw qError;
+
+            if (qError) {
+                console.error("Error fetching questionnaires:", qError);
+                throw qError;
+            }
 
             let monthly_avg: number | null = null;
             let previous_month_avg: number | null = null;
@@ -76,14 +121,11 @@ Deno.serve(async (req) => {
         const paginatedUsers = userRanks.slice(offset, offset + limit);
         const hasMore = offset + limit < userRanks.length;
 
-        return new Response(JSON.stringify({ users: paginatedUsers, hasMore }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-    } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonOk({ users: paginatedUsers, hasMore });
+
+    } catch (error) {
+        console.error("Unexpected error:", error);
+        return jsonError("Erreur serveur interne: " + error.message, 500);
     }
 });
 
@@ -99,10 +141,10 @@ async function computeCarbon(questionaryId: number): Promise<number> {
         .from("MultipleChoicesAnswer")
         .select("idMultipleChoicesAnswer, idQuestion, value");
 
-    const mcMap = new Map(mcAnswersRaw.map(mc => [String(mc.idMultipleChoicesAnswer), mc]));
+    const mcMap = new Map(mcAnswersRaw?.map(mc => [String(mc.idMultipleChoicesAnswer), mc]) ?? []);
 
     const { data: questions } = await supabase.from("Question").select("idQuestion, idTypeQuestion");
-    const questionToType = new Map(questions.map(q => [q.idQuestion, q.idTypeQuestion]));
+    const questionToType = new Map(questions?.map(q => [q.idQuestion, q.idTypeQuestion]) ?? []);
 
     const totalsByTypeId = new Map<number, number>();
 
@@ -121,7 +163,7 @@ async function computeCarbon(questionaryId: number): Promise<number> {
         .eq("idQuestionary", questionaryId);
 
     const { data: coeficients } = await supabase.from("Coeficient").select("idQuestion, value");
-    const coefByQuestion = new Map(coeficients.map(c => [c.idQuestion, Number(c.value ?? 0)]));
+    const coefByQuestion = new Map(coeficients?.map(c => [c.idQuestion, Number(c.value ?? 0)]) ?? []);
 
     (encodedAnswers ?? []).forEach(ea => {
         const coef = coefByQuestion.get(ea.idQuestion) ?? 0;
