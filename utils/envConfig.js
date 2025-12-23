@@ -7,4 +7,6 @@ dotenv.config() // get the .env config
 export const env = {
     supabaseUrl: process.env.SUPABASE_URL,
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+    perspectiveKey: process.env.PERPESCTIVE_KEY,
+
 }
