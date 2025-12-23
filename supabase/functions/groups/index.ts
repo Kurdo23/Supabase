@@ -98,7 +98,7 @@ async function getGroupById(idGroup: number): Promise<Response> {
 }
 
 async function createGroup(body: CreateGroupBody): Promise<Response> {
-    const { name, description, logo, isPublic, isCertified, isVisible, userId } = body;
+    const { name, description, logo, isPublic, isVisible, userId } = body;
     if (!name || !userId) return jsonError("Champs requis manquants", 400);
 
     const { data, error } = await supabase

@@ -470,12 +470,15 @@ entrypoint = "./functions/notification/index.ts"
 [functions.user-mana]
 enabled = true
 verify_jwt = true
+import_map = "./functions/getCompanyRanking/deno.json"
 import_map = "./functions/user-mana/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/getCompanyRanking/index.ts"
 entrypoint = "./functions/user-mana/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/getCompanyRanking/*.html" ]
 # static_files = [ "./functions/user-mana/*.html" ]
 
 [functions.getComparison]
@@ -620,6 +623,28 @@ entrypoint = "./functions/send-email/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/send-email/*.html" ]
+
+[functions.analyze-user-content]
+enabled = true
+verify_jwt = true
+import_map = "./functions/analyze-user-content/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/analyze-user-content/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/analyze-user-content/*.html" ]
+
+[functions.user-reports]
+enabled = true
+verify_jwt = true
+import_map = "./functions/user-reports/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/user-reports/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/user-reports/*.html" ]
 
 [functions.general-info-admin]
 enabled = true

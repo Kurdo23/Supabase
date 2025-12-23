@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
 
     try {
         // Récupérer les paramètres de pagination et de tri
-        const { offset = 0, limit = 20, sortBy = "co2" } = await req.json();
+        const { offset = 0, limit = 20, sortBy = "co2", userId = null } = await req.json();
 
         // Récupérer TOUS les utilisateurs pour pouvoir les trier correctement
         const { data: allUsers, error: userError } = await supabase
@@ -65,16 +65,50 @@ Deno.serve(async (req) => {
             });
         }
 
+        // Filtrer les utilisateurs qui n'ont pas répondu au questionnaire
+        const validUserRanks = userRanks.filter(user => user.monthly_avg !== null);
+
         // Trier selon le critère demandé
         if (sortBy === "co2") {
-            userRanks.sort((a, b) => (a.monthly_avg ?? Infinity) - (b.monthly_avg ?? Infinity));
+            validUserRanks.sort((a, b) => (a.monthly_avg ?? Infinity) - (b.monthly_avg ?? Infinity));
         } else if (sortBy === "effort") {
-            userRanks.sort((a, b) => (b.effort ?? 0) - (a.effort ?? 0));
+            validUserRanks.sort((a, b) => (b.effort ?? 0) - (a.effort ?? 0));
         }
 
-        // Appliquer la pagination après le tri
-        const paginatedUsers = userRanks.slice(offset, offset + limit);
-        const hasMore = offset + limit < userRanks.length;
+        // Ajouter les rangs à tous les utilisateurs après le tri
+        const rankedUsers = validUserRanks.map((user, index) => ({
+            ...user,
+            rank: index + 1
+        }));
+
+        // Si userId est fourni, gérer l'affichage top 10 + contexte utilisateur
+        if (userId && offset === 0) {
+            const currentUserIndex = rankedUsers.findIndex(u => u.id === userId);
+            const currentUserRank = currentUserIndex >= 0 ? currentUserIndex + 1 : null;
+
+            // Si l'utilisateur est trouvé et son rang > 10, retourner top 10 + contexte
+            if (currentUserRank && currentUserRank > 10) {
+                const top10 = rankedUsers.slice(0, 10);
+
+                // Prendre 2 au-dessus, l'utilisateur, 2 en-dessous
+                const contextStart = Math.max(0, currentUserIndex - 2);
+                const contextEnd = Math.min(rankedUsers.length, currentUserIndex + 3);
+                const contextUsers = rankedUsers.slice(contextStart, contextEnd);
+
+                return new Response(JSON.stringify({
+                    users: top10,
+                    contextUsers: contextUsers,
+                    currentUserRank: currentUserRank,
+                    hasMore: true
+                }), {
+                    headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+            }
+        }
+
+        // Appliquer la pagination après le tri (comportement normal)
+        const paginatedUsers = rankedUsers.slice(offset, offset + limit);
+        const hasMore = offset + limit < rankedUsers.length;
 
         return new Response(JSON.stringify({ users: paginatedUsers, hasMore }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
