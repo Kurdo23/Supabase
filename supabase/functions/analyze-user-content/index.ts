@@ -55,7 +55,6 @@ Deno.serve(async (req) => {
   try {
     // Vérifier la clé API Perspective
     if (!perspectiveApiKey) {
-      console.error("PERSPECTIVE_API_KEY non configurée");
       return new Response(
           JSON.stringify({ error: "Configuration API manquante" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -111,8 +110,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Analyse du contenu pour l'utilisateur ${userId}: "${textToAnalyze}"`);
-
     // Appel à l'API Perspective
     const perspectiveResponse = await fetch(
         `${PERSPECTIVE_API_URL}?key=${perspectiveApiKey}`,
@@ -135,8 +132,6 @@ Deno.serve(async (req) => {
     );
 
     if (!perspectiveResponse.ok) {
-      const errorText = await perspectiveResponse.text();
-      console.error("Erreur Perspective API:", errorText);
       return new Response(
           JSON.stringify({ error: "Erreur lors de l'analyse du contenu" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -154,12 +149,9 @@ Deno.serve(async (req) => {
     const profanityScore = scores.PROFANITY?.summaryScore?.value;
     const threatScore = scores.THREAT?.summaryScore?.value;
 
-    console.log(`Score de toxicité: ${toxicityScore} (seuil: ${TOXICITY_THRESHOLD})`);
-
     // Si le score dépasse le seuil, créer un signalement
     let reportCreated = false;
     if (toxicityScore >= TOXICITY_THRESHOLD) {
-      console.log(`Création d'un signalement pour l'utilisateur ${userId}`);
 
       const { error: insertError } = await supabase
           .from("user_reports")
@@ -179,11 +171,9 @@ Deno.serve(async (req) => {
           });
 
       if (insertError) {
-        console.error("Erreur lors de la création du signalement:", insertError.message);
         // Ne pas retourner d'erreur car l'analyse a réussi
       } else {
         reportCreated = true;
-        console.log("Signalement créé avec succès");
       }
     }
 
@@ -207,7 +197,6 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("Erreur serveur:", err);
     return new Response(
         JSON.stringify({ error: "Erreur serveur lors de l'analyse" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
