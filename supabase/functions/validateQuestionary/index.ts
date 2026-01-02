@@ -2,29 +2,69 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json"
 };
 
-Deno.serve(async (req) => {
-    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+function jsonOk(data: unknown, status = 200): Response {
+    return new Response(JSON.stringify(data), {
+        status,
+        headers: corsHeaders,
+    });
+}
+
+function jsonError(message: string, status = 400): Response {
+    return new Response(JSON.stringify({ error: message }), {
+        status,
+        headers: corsHeaders,
+    });
+}
+
+Deno.serve(async (req: Request): Promise<Response> => {
+    // Handle CORS preflight
+    if (req.method === "OPTIONS") {
+        return new Response("ok", { headers: corsHeaders });
+    }
 
     try {
+        // Authentification
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader?.startsWith("Bearer ")) {
+            return jsonError("Missing or invalid Authorization header", 401);
+        }
+
+        // Créer un client avec l'ANON_KEY et le token utilisateur pour l'auth
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+                headers: {
+                    Authorization: authHeader,
+                },
+            },
+        });
+
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+        if (authError || !user) {
+            return jsonError("Utilisateur non authentifié", 401);
+        }
+
+        const authenticatedUserId = user.id;
+
+        // Récupérer le body
         const { questionaryId } = await req.json();
         console.log("1. QuestionaryId reçu:", questionaryId);
 
         if (!questionaryId) {
-            return new Response(JSON.stringify({ error: "Missing questionaryId" }), {
-                status: 400,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return jsonError("Missing questionaryId", 400);
         }
 
-        // 1. Vérifier que le questionnaire existe
+        // 1. Vérifier que le questionnaire existe et appartient à l'utilisateur
         const { data: questionary, error: questionaryError } = await supabase
             .from("Questionary")
             .select("idQuestionary, idUser")
@@ -34,7 +74,21 @@ Deno.serve(async (req) => {
         console.log("2. Questionnaire trouvé:", questionary);
         if (questionaryError) {
             console.error("Erreur questionnaire:", questionaryError);
-            throw questionaryError;
+            return jsonError("Questionnaire introuvable", 404);
+        }
+
+        // Vérifier que l'utilisateur authentifié est propriétaire du questionnaire
+        // ou est admin
+        if (questionary.idUser !== authenticatedUserId) {
+            const { data: userProfile } = await supabase
+                .from("User")
+                .select("isadmin")
+                .eq("idUser", authenticatedUserId)
+                .maybeSingle();
+
+            if (!userProfile?.isadmin) {
+                return jsonError("Accès refusé : vous ne pouvez valider que vos propres questionnaires", 403);
+            }
         }
 
         // 2. Traiter les conseils liés aux réponses à choix multiples
@@ -54,7 +108,7 @@ Deno.serve(async (req) => {
         console.log("3. Choix de l'utilisateur:", JSON.stringify(choices, null, 2));
         if (choiceError) {
             console.error("Erreur récupération des choix:", choiceError);
-            throw choiceError;
+            return jsonError("Erreur lors de la récupération des choix", 500);
         }
 
         let mcAdvicesInserted = 0;
@@ -84,7 +138,7 @@ Deno.serve(async (req) => {
 
                 if (insertMcError) {
                     console.error("Erreur insertion MC:", insertMcError);
-                    throw insertMcError;
+                    return jsonError("Erreur lors de l'insertion des conseils à choix multiples", 500);
                 }
                 mcAdvicesInserted = insertedMc?.length || 0;
                 console.log("5. Conseils MC insérés:", mcAdvicesInserted);
@@ -110,7 +164,7 @@ Deno.serve(async (req) => {
         console.log("6. Réponses encodées:", JSON.stringify(encodedAnswers, null, 2));
         if (encodedError) {
             console.error("Erreur réponses encodées:", encodedError);
-            throw encodedError;
+            return jsonError("Erreur lors de la récupération des réponses encodées", 500);
         }
 
         let encodedAdvicesInserted = 0;
@@ -158,7 +212,7 @@ Deno.serve(async (req) => {
 
                 if (insertEncodedError) {
                     console.error("Erreur insertion encodés:", insertEncodedError);
-                    throw insertEncodedError;
+                    return jsonError("Erreur lors de l'insertion des conseils encodés", 500);
                 }
                 encodedAdvicesInserted = insertedEncoded?.length || 0;
                 console.log("9. Conseils encodés insérés:", encodedAdvicesInserted);
@@ -173,12 +227,12 @@ Deno.serve(async (req) => {
 
         if (updateError) {
             console.error("Erreur update questionnaire:", updateError);
-            throw updateError;
+            return jsonError("Erreur lors de la mise à jour du questionnaire", 500);
         }
 
         console.log("10. Questionnaire mis à jour - Succès!");
 
-        return new Response(JSON.stringify({
+        return jsonOk({
             success: true,
             message: "Conseils attribués avec succès",
             details: {
@@ -187,17 +241,10 @@ Deno.serve(async (req) => {
                 encodedAdvices: encodedAdvicesInserted,
                 totalAdvices: mcAdvicesInserted + encodedAdvicesInserted
             }
-        }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-    } catch (err) {
-        console.error("Erreur générale:", err);
-        return new Response(JSON.stringify({
-            error: err.message,
-            stack: err.stack
-        }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+
+    } catch (error) {
+        console.error("Erreur générale:", error);
+        return jsonError("Erreur serveur interne: " + error.message, 500);
     }
 });

@@ -47,9 +47,18 @@ interface PerspectiveResponse {
 
 // Edge Function
 Deno.serve(async (req) => {
-    // Gérer les requêtes OPTIONS pour le pré-vol CORS
-    if (req.method === "OPTIONS") {
-        return new Response(null, { headers: corsHeaders });
+  // Gérer les requêtes OPTIONS pour le pré-vol CORS
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    // Vérifier la clé API Perspective
+    if (!perspectiveApiKey) {
+      return new Response(
+          JSON.stringify({ error: "Configuration API manquante" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     try {
@@ -218,39 +227,96 @@ Deno.serve(async (req) => {
                         status: "pending",
                     });
 
-                if (insertError) {
-                    console.error(`[analyze-user-content] Erreur insertion:`, insertError);
-                    // Ne pas retourner d'erreur car l'analyse a réussi
-                } else {
-                    reportCreated = true;
-                    console.log(`[analyze-user-content] Signalement créé pour userId ${userId}`);
-                }
-            }
+    // Appel à l'API Perspective
+    const perspectiveResponse = await fetch(
+        `${PERSPECTIVE_API_URL}?key=${perspectiveApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            comment: { text: textToAnalyze },
+            languages: ["fr", "en"],
+            requestedAttributes: {
+              TOXICITY: {},
+              SEVERE_TOXICITY: {},
+              IDENTITY_ATTACK: {},
+              INSULT: {},
+              PROFANITY: {},
+              THREAT: {},
+            },
+          }),
         }
+    );
 
-        // Retourner les résultats
-        return new Response(
-            JSON.stringify({
-                success: true,
-                reportCreated: reportCreated,
-                scores: {
-                    toxicity: toxicityScore,
-                    severeToxicity: severeToxicityScore,
-                    identityAttack: identityAttackScore,
-                    insult: insultScore,
-                    profanity: profanityScore,
-                    threat: threatScore,
-                },
-                message: reportCreated
-                    ? "Contenu signalé pour modération"
-                    : "Contenu analysé, aucun problème détecté",
-            }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-    } catch (err) {
-        return new Response(
-            JSON.stringify({ error: "Erreur serveur lors de l'analyse" }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    if (!perspectiveResponse.ok) {
+      return new Response(
+          JSON.stringify({ error: "Erreur lors de l'analyse du contenu" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    const perspectiveData: PerspectiveResponse = await perspectiveResponse.json();
+    const scores = perspectiveData.attributeScores;
+
+    // Extraire les scores
+    const toxicityScore = scores.TOXICITY?.summaryScore?.value || 0;
+    const severeToxicityScore = scores.SEVERE_TOXICITY?.summaryScore?.value;
+    const identityAttackScore = scores.IDENTITY_ATTACK?.summaryScore?.value;
+    const insultScore = scores.INSULT?.summaryScore?.value;
+    const profanityScore = scores.PROFANITY?.summaryScore?.value;
+    const threatScore = scores.THREAT?.summaryScore?.value;
+
+    // Si le score dépasse le seuil, créer un signalement
+    let reportCreated = false;
+    if (toxicityScore >= TOXICITY_THRESHOLD) {
+
+      const { error: insertError } = await supabase
+          .from("user_reports")
+          .insert({
+            user_id: userId,
+            analyzed_content: textToAnalyze,
+            name: name,
+            lastname: lastname || null,
+            username: username || null,
+            toxicity_score: toxicityScore,
+            severe_toxicity_score: severeToxicityScore,
+            identity_attack_score: identityAttackScore,
+            insult_score: insultScore,
+            profanity_score: profanityScore,
+            threat_score: threatScore,
+            status: "pending",
+          });
+
+      if (insertError) {
+        // Ne pas retourner d'erreur car l'analyse a réussi
+      } else {
+        reportCreated = true;
+      }
+    }
+
+    // Retourner les résultats
+    return new Response(
+        JSON.stringify({
+          success: true,
+          reportCreated: reportCreated,
+          scores: {
+            toxicity: toxicityScore,
+            severeToxicity: severeToxicityScore,
+            identityAttack: identityAttackScore,
+            insult: insultScore,
+            profanity: profanityScore,
+            threat: threatScore,
+          },
+          message: reportCreated
+              ? "Contenu signalé pour modération"
+              : "Contenu analysé, aucun problème détecté",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    return new Response(
+        JSON.stringify({ error: "Erreur serveur lors de l'analyse" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 });
