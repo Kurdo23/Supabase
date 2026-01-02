@@ -196,6 +196,21 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Récupérer le signalement pour avoir l'user_id
+      const { data: report, error: fetchError } = await supabase
+          .from("user_reports")
+          .select("user_id")
+          .eq("id", reportId)
+          .single();
+
+      if (fetchError || !report) {
+        return new Response(
+            JSON.stringify({ error: "Signalement introuvable" }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Mettre à jour le signalement
       const { error: updateError } = await supabase
           .from("user_reports")
           .update({
@@ -212,6 +227,25 @@ Deno.serve(async (req) => {
             JSON.stringify({ error: updateError.message }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Vérifier s'il reste des signalements actifs pour cet utilisateur
+      const { data: activeReports } = await supabase
+          .from("user_reports")
+          .select("id")
+          .eq("user_id", report.user_id)
+          .in("status", ["pending", "reviewed"])
+          .limit(1);
+
+      // Si aucun signalement actif, débloquer le profil
+      if (!activeReports || activeReports.length === 0) {
+        await supabase
+            .from("User")
+            .update({
+              profile_modification_required: false,
+              profile_modification_reason: null
+            })
+            .eq("idUser", report.user_id);
       }
 
       return new Response(
